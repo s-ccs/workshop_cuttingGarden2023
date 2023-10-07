@@ -16,9 +16,9 @@ end
 
 # ╔═╡ d9912a4c-5d3a-11ee-381e-03ad95d59994
 begin
-	using Unfold,UnfoldSim,UnfoldMakie
+	using Unfold,UnfoldSim,UnfoldMakie, MixedModels,DisplayAs
 	using CairoMakie
-	using Random,DataFrames,Statistics
+	using Random,DataFrames,StatsBase
 	using PlutoUI,PlutoTables, PlutoTeachingTools
 	using StableRNGs
 end
@@ -32,6 +32,14 @@ Author: [Benedikt Ehinger](www.s-ccs.de)
 
 ---
 """
+
+# ╔═╡ 363cb188-97c7-4ece-b416-08256da0b5f9
+md"""
+What follows is some simple code to get an interesting plot. The idea is to get to know Pluto.jl a little bit & implement a simple interactive slider.
+"""
+
+# ╔═╡ 47627344-61e0-4992-84a9-612a5e6798f3
+PlutoTeachingTools.warning_box(md"No need to understand the code, you can simply skip it for now and look back at it at a more relaxed point in time")
 
 # ╔═╡ 4de80b12-59c8-4cee-86d7-d13463fa263a
 function lorenz_step!(state,fixed,Δt)
@@ -161,21 +169,11 @@ md"""
 Finally, let's plot what we have simulated.
 """
 
-# ╔═╡ 57d0f9dd-4f52-4933-9386-ab74373b76e8
-md"""
-a Slider to modify the PinkNoise amplitude in the simulation
-"""
-
 # ╔═╡ 1f9c0f4d-feff-4b92-b5f5-e03b92ff8bba
-nl_slider = @bind noiselevel PlutoUI.Slider(1:5:40,show_value=true)
-
-# ╔═╡ 0981e1df-c1d4-4cab-a2d2-d41e262e9373
-md"""
-a Slider to modify the N1 intercept random effect
-"""
+nl_slider = @bind noiselevel PlutoUI.Slider(1:5:40,show_value=true);
 
 # ╔═╡ 82ef9822-c2db-4590-8aa2-6d8bb38264a5
-σs_n1_intercept_slider = @bind σs_n1_intercept PlutoUI.Slider(0:1:10,show_value=true)
+σs_n1_intercept_slider = @bind σs_n1_intercept PlutoUI.Slider(0:1:10,show_value=true);
 
 # ╔═╡ b3122077-dfae-4117-a90f-1f837a1d1196
    begin
@@ -198,7 +196,18 @@ a Slider to modify the N1 intercept random effect
    end;
 
 # ╔═╡ 55c04898-9783-4e74-82a9-c38f66df106e
-dat,evts = simulate(MersenneTwister(1),design,[p1,n1,p3],UniformOnset(1,1),PinkNoise(noiselevel=noiselevel);return_epoched=true);
+dat,evts = UnfoldSim.simulate(MersenneTwister(1),design,[p1,n1,p3],UniformOnset(1,1),PinkNoise(noiselevel=noiselevel);return_epoched=true);
+
+# ╔═╡ 57d0f9dd-4f52-4933-9386-ab74373b76e8
+md"""
+Some sliders to modify the simulation
+
+|||
+|---|---|
+|Noiselevel | $nl_slider| 
+|N1 intercept random effect σs|$σs_n1_intercept_slider
+
+"""
 
 # ╔═╡ 2bde3123-09a5-4faa-84ba-8ef579179511
 question_box(md"""
@@ -210,13 +219,52 @@ md"""
 # Task 3: ROI based LMMs
 """
 
-# ╔═╡ 8096c5ca-4a6a-4539-a5de-39439d2cd295
+# ╔═╡ 8b91f1ba-8667-489f-a396-6da5a238cbe8
+md"""
+For starters we want to fit a single LMM. Given we simulated a single channel right now, we only need to get the activity in the right time-window.
+"""
 
+# ╔═╡ 52ace7dc-c435-4821-971c-e49dd36918d7
+m_roi = fit(MixedModel,@formula(roi_bsl~1+condition+(1+condition|subject)),evts);
+
+# ╔═╡ c92fbbeb-b1f9-4b3f-ba40-3d0bc88ba3cd
+DisplayAs.Text(m_roi)
+
+# ╔═╡ bac2de36-f031-4033-8fe8-87ad66250491
+aside(tip(md"Careful! These p-values are missleading, they are in most cases too small!"),v_offset=-170)
+
+# ╔═╡ e60e3222-a563-401a-ac71-7cc86a6a5972
+question_box(md"""
+Do we have a "significant" face effect? How large is it compared to what we simulated?
+""")
+
+# ╔═╡ d78b7df1-bd30-4bca-a5c9-40dfad22a2d9
+question_box(md"""
+Some **Bonus** tasks:
+- Add an `item` effect (for technical reasons, the item effect needs to be inserted before the subject effect)
+- Use `roi_bsl` instead of `bsl` - what parameter changes? 
+""")
+
+# ╔═╡ 5e3c5c35-6ce1-4196-bda3-fdf5426650a1
+md"""
+For the roi-baseline task a hint:
+"""
+
+# ╔═╡ 33eb0e21-2cac-481a-bec7-0dec8f4e5fa2
+hint(md"""
+A checkbox might be helpful:
+
+`$(@bind dobaseline PlutoUI.CheckBox()`
+
+""")
 
 # ╔═╡ 668ab2c9-b3bb-4354-841c-4c7116831df1
 md"""
 # Task 4: Mass univariate MixedModels
 """
+
+# ╔═╡ c2de350c-6db9-4c4a-8d2d-32805a48d932
+TODO("Finish this section with something more meaningfull than BSL")
 
 # ╔═╡ b6b7e722-33b0-48b7-98e5-85efe4c049f6
 times = range(-0.1,0.5,length=size(dat,1))
@@ -250,8 +298,35 @@ f = plot_erp(erp2stage;mapping=(;group=:subject))
 GAerp = combine(groupby(erp2stage,[:time,:coefname]),:estimate => mean=>:estimate)
 [lines!(current_axis(),gp.time,gp.estimate,color=:black,linewidth=5) for gp in groupby(GAerp,:coefname)]
 
-f # plot figure
+f
 end
+
+# ╔═╡ c938df0c-944f-44a2-bff8-aa89ace5c95b
+begin
+bslwindow = times.<0
+roiwindow = times .> 0.15 .&& times .< 0.2
+end
+
+# ╔═╡ f6cdd050-2283-47d9-bd21-f61474c25d8b
+begin
+evts.roi .= NaN
+evts.bsl .= NaN
+
+winsorizedmean(x) =  mean(winsor(x))
+	
+for s = unique(evts.subject)
+	ix = evts.subject .== s # get data of single subjects
+	d = dat[:,ix] 
+	
+	evts.bsl[ix] = winsorizedmean(eachrow(d[bslwindow,:])) # bsl correction
+	
+	evts.roi[ix] = winsorizedmean(eachrow(d[roiwindow,:]))
+
+end
+evts.roi_bsl = evts.roi .- evts.bsl # bsl correct ROI
+
+	
+end;
 
 # ╔═╡ 06de74ec-c56b-4439-9c0d-5f04823e1a47
 md"""
@@ -275,12 +350,14 @@ PLUTO_PROJECT_TOML_CONTENTS = """
 [deps]
 CairoMakie = "13f3f980-e62b-5c42-98c6-ff1f3baf88f0"
 DataFrames = "a93c6f00-e57d-5684-b7b6-d8193f3e46c0"
+DisplayAs = "0b91fe84-8a4c-11e9-3e1d-67c38462b6d6"
+MixedModels = "ff71e718-51f3-5ec2-a782-8ffcbfa3c316"
 PlutoTables = "e64c0356-fa58-4209-b01c-f6c8ed5474f5"
 PlutoTeachingTools = "661c6b06-c737-4d37-b85c-46df65de6f69"
 PlutoUI = "7f904dfe-b85e-4ff6-b463-dae2292396a8"
 Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
 StableRNGs = "860ef19b-820b-49d6-a774-d7a799459cd3"
-Statistics = "10745b16-79ce-11e8-11f9-7d13ad32a3b2"
+StatsBase = "2913bbd2-ae8a-5f71-8c99-4fb6c76f3a91"
 Unfold = "181c99d8-e21b-4ff3-b70b-c233eddec679"
 UnfoldMakie = "69a5ce3b-64fb-4f22-ae69-36dd4416af2a"
 UnfoldSim = "ed8ae6d2-84d3-44c6-ab46-0baf21700804"
@@ -288,10 +365,13 @@ UnfoldSim = "ed8ae6d2-84d3-44c6-ab46-0baf21700804"
 [compat]
 CairoMakie = "~0.10.10"
 DataFrames = "~1.6.1"
+DisplayAs = "~0.1.6"
+MixedModels = "~4.22.1"
 PlutoTables = "~0.1.5"
 PlutoTeachingTools = "~0.2.13"
 PlutoUI = "~0.7.52"
 StableRNGs = "~1.0.0"
+StatsBase = "~0.34.2"
 Unfold = "~0.6.1"
 UnfoldMakie = "~0.3.5"
 UnfoldSim = "~0.1.6"
@@ -303,7 +383,7 @@ PLUTO_MANIFEST_TOML_CONTENTS = """
 
 julia_version = "1.9.2"
 manifest_format = "2.0"
-project_hash = "08a4c94aa28ca4e620bf6ee0c48389c8c722f6bb"
+project_hash = "004358f8f4033a88dc83426f6dd967905aa93432"
 
 [[deps.AbstractFFTs]]
 deps = ["LinearAlgebra"]
@@ -774,6 +854,11 @@ deps = ["IrrationalConstants", "LogExpFunctions", "NaNMath", "Random", "SpecialF
 git-tree-sha1 = "23163d55f885173722d1e4cf0f6110cdbaf7e272"
 uuid = "b552c78f-8df3-52c6-915a-8e097449b14b"
 version = "1.15.1"
+
+[[deps.DisplayAs]]
+git-tree-sha1 = "43c017d5dd3a48d56486055973f443f8a39bb6d9"
+uuid = "0b91fe84-8a4c-11e9-3e1d-67c38462b6d6"
+version = "0.1.6"
 
 [[deps.Distances]]
 deps = ["LinearAlgebra", "Statistics", "StatsAPI"]
@@ -2561,6 +2646,8 @@ version = "3.5.0+0"
 # ╔═╡ Cell order:
 # ╠═d9912a4c-5d3a-11ee-381e-03ad95d59994
 # ╟─f65f535c-e9f3-4972-ad20-42eeaac43427
+# ╟─363cb188-97c7-4ece-b416-08256da0b5f9
+# ╟─47627344-61e0-4992-84a9-612a5e6798f3
 # ╠═4de80b12-59c8-4cee-86d7-d13463fa263a
 # ╟─e4b321f8-e5e4-4459-aa89-9d8d9c640d4d
 # ╟─3cbe1c9d-d3e3-4757-ba8d-2867e37b1dbe
@@ -2588,17 +2675,26 @@ version = "3.5.0+0"
 # ╠═25f0fdf0-8ca9-4177-a310-8d831288a972
 # ╟─57d0f9dd-4f52-4933-9386-ab74373b76e8
 # ╠═1f9c0f4d-feff-4b92-b5f5-e03b92ff8bba
-# ╟─0981e1df-c1d4-4cab-a2d2-d41e262e9373
 # ╠═82ef9822-c2db-4590-8aa2-6d8bb38264a5
 # ╟─2bde3123-09a5-4faa-84ba-8ef579179511
 # ╟─1fb9316e-0943-4ba9-964d-9ac8daf44eba
-# ╠═8096c5ca-4a6a-4539-a5de-39439d2cd295
-# ╠═668ab2c9-b3bb-4354-841c-4c7116831df1
+# ╟─8b91f1ba-8667-489f-a396-6da5a238cbe8
+# ╠═c938df0c-944f-44a2-bff8-aa89ace5c95b
+# ╠═f6cdd050-2283-47d9-bd21-f61474c25d8b
+# ╠═52ace7dc-c435-4821-971c-e49dd36918d7
+# ╠═c92fbbeb-b1f9-4b3f-ba40-3d0bc88ba3cd
+# ╟─bac2de36-f031-4033-8fe8-87ad66250491
+# ╟─e60e3222-a563-401a-ac71-7cc86a6a5972
+# ╟─d78b7df1-bd30-4bca-a5c9-40dfad22a2d9
+# ╟─5e3c5c35-6ce1-4196-bda3-fdf5426650a1
+# ╟─33eb0e21-2cac-481a-bec7-0dec8f4e5fa2
+# ╟─668ab2c9-b3bb-4354-841c-4c7116831df1
+# ╠═c2de350c-6db9-4c4a-8d2d-32805a48d932
 # ╠═b6b7e722-33b0-48b7-98e5-85efe4c049f6
 # ╟─06de74ec-c56b-4439-9c0d-5f04823e1a47
+# ╠═980e21c2-c7c3-46fd-8d61-f6c71e79a3a7
 # ╠═8315f08c-3c76-433a-b9ee-4669a1b715d0
 # ╠═2806dd13-a328-4d43-957b-51ec11f3d0d8
-# ╠═980e21c2-c7c3-46fd-8d61-f6c71e79a3a7
 # ╠═fc4bc561-ff65-414a-80fb-d2c2e3083656
 # ╟─00000000-0000-0000-0000-000000000001
 # ╟─00000000-0000-0000-0000-000000000002
