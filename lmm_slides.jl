@@ -131,14 +131,19 @@ md"""
 # ╔═╡ faa80c8f-320c-4cce-b1dc-2d5bb90cb82b
 md"""
 ## **Exercise 1**: Give Pluto a spin!
-XXX
+Goto [workshop.s-ccs.de](http://workshop.s-ccs.de). Your very own Pluto Notebook will spawn.
 """
+
+# ╔═╡ c4e11076-7e62-408c-b7e3-c787b04fb7ab
+warning_box(md"All notebooks run on one server - Ressources are limited. Starting times to be expected!!
+
+**To save ressources: Please find a partner to work together**")
 
 # ╔═╡ daed0b75-27e7-4f09-aab4-5b561ff542a6
 begin md"""
 
 # MixedModels.jl
-- faster (up to 100x!)
+- faster (up to 100x!) (show other notebook)
 - deals slightly better with singular models, hardly fails model fit
 """ end
 
@@ -264,9 +269,6 @@ end
 evts.roi = evts.roi .- evts.bsl # bsl correct ROI
 	
 end
-
-# ╔═╡ be0c6d35-3d5e-4e3c-ba98-0f0252b6aa71
-aside(tip(md"""Notice the `0~1+condition` formula changed!"""),v_offset=-200)
 
 # ╔═╡ 712043b7-1c2c-4fad-a2cf-a50cf65dcdca
 md"""
@@ -417,6 +419,9 @@ PlutoTeachingTools.question_box(md"Open question: Should one perform a different
 # ╔═╡ 87486239-2882-4033-bb74-23d0959ef054
 series(rePCA(lmm)[:subject])
 
+# ╔═╡ 025dd369-49ba-462c-8277-f32f5e895364
+TODO("FIX THIS; new unfold version!")
+
 # ╔═╡ 4caad300-f137-4321-b1ee-0d4d38ec12cf
 begin md"""
 ## Outlook: Multiple comparison problem
@@ -427,6 +432,9 @@ The multiple comparison problem can be easily visualized for this EEG data
 = > link to other preprint for ""(1|subj)"" - case
 """ 
 end
+
+# ╔═╡ e6e2d6f9-a774-4f8e-a04c-d550366859e4
+TODO("ADD CURRENT RESULTS MixedModelsPermutations.jl")
 
 # ╔═╡ 30d4c647-6537-4418-b679-abaea4135254
 MixedModels.likelihoodratiotest
@@ -453,6 +461,9 @@ f,ax,c = scatterlines(pval)
 hlines!([0.05])
 	f
 end
+
+# ╔═╡ 7313a038-49c2-4aa8-9f1e-de51fbcff774
+TODO("ADD OUTLOOK CLUSTERPERMUTATIONTEST?")
 
 # ╔═╡ ace7c106-010f-469b-9373-825a2a39ab47
 begin md"""
@@ -489,6 +500,11 @@ I --> |No| T
 # ╔═╡ 6eb29bb8-c753-4102-954a-340b8641f99d
 md"""
 ## **Exercise 4**: Mass univariate LMMs
+"""
+
+# ╔═╡ d524dde5-3790-4815-bc1d-6a79afcef1ef
+md"""
+You are now ready for the last exercise, your very own mass univariate LMMs!
 """
 
 # ╔═╡ 00000000-0000-0000-0000-000000000001
@@ -2769,8 +2785,9 @@ version = "3.5.0+0"
 # ╠═49049fb6-13ad-4cf1-84dd-f3b9e283d9c3
 # ╠═230c76a5-3ff9-487c-b60e-ea9f186bb260
 # ╠═62b05841-8cca-4112-828c-f403bacf88e6
-# ╠═faa80c8f-320c-4cce-b1dc-2d5bb90cb82b
-# ╠═daed0b75-27e7-4f09-aab4-5b561ff542a6
+# ╟─faa80c8f-320c-4cce-b1dc-2d5bb90cb82b
+# ╟─c4e11076-7e62-408c-b7e3-c787b04fb7ab
+# ╟─daed0b75-27e7-4f09-aab4-5b561ff542a6
 # ╟─c3fe1433-805a-4008-972d-757a9c3f4f70
 # ╠═a0faafbb-9b9c-4d46-812b-84d818ae2f50
 # ╠═71bc5650-c7da-4cf3-b7ea-b85445d3515b
@@ -2792,7 +2809,6 @@ version = "3.5.0+0"
 # ╟─8ef586b3-590a-4816-8ed2-93b3fe03b13a
 # ╟─50542527-17d4-4c25-9116-0b23142825db
 # ╠═e50fab8b-1223-46da-a6e9-42102c24c992
-# ╟─be0c6d35-3d5e-4e3c-ba98-0f0252b6aa71
 # ╟─712043b7-1c2c-4fad-a2cf-a50cf65dcdca
 # ╠═0aa5052a-0e64-479c-bb5d-6f68aa9bcd03
 # ╠═f75beca4-31e9-4787-9734-8acec529a0bf
@@ -2819,15 +2835,19 @@ version = "3.5.0+0"
 # ╟─3f0d7489-e8b1-45cf-8ecd-bdd7a310ef4f
 # ╟─ad97a4f8-92a7-4d17-ada6-c08880296b86
 # ╠═87486239-2882-4033-bb74-23d0959ef054
+# ╟─025dd369-49ba-462c-8277-f32f5e895364
 # ╠═4caad300-f137-4321-b1ee-0d4d38ec12cf
+# ╠═e6e2d6f9-a774-4f8e-a04c-d550366859e4
 # ╠═30d4c647-6537-4418-b679-abaea4135254
 # ╠═5bb4e2b2-f82a-42fd-bb1d-cc74dce10201
 # ╟─399b49c4-ec87-4fae-9608-20d350303d36
+# ╠═7313a038-49c2-4aa8-9f1e-de51fbcff774
 # ╠═ace7c106-010f-469b-9373-825a2a39ab47
 # ╟─6a195e7d-8404-40da-84d2-d258d8a1c16d
 # ╠═4d7ee298-b43c-40ef-86e6-f5fe22d22d93
 # ╟─ffc61e53-954a-401b-b615-0264f7727ddf
 # ╟─69e7811e-6f9d-4b5e-8530-6ba9f3bc8648
 # ╟─6eb29bb8-c753-4102-954a-340b8641f99d
+# ╟─d524dde5-3790-4815-bc1d-6a79afcef1ef
 # ╟─00000000-0000-0000-0000-000000000001
 # ╟─00000000-0000-0000-0000-000000000002
