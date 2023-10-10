@@ -49,6 +49,9 @@ using Kroki
 # ╔═╡ 2884d60d-53d2-4bbe-ac46-ace871956876
 ChooseDisplayMode()
 
+# ╔═╡ 801095e7-c7a3-4686-b1da-7d340370512f
+
+
 # ╔═╡ 51c5b832-2754-4eb8-9ca5-f7b0216a30b8
 TableOfContents()   # from PlutoUI
 
@@ -2769,6 +2772,7 @@ version = "3.5.0+0"
 # ╔═╡ Cell order:
 # ╠═2884d60d-53d2-4bbe-ac46-ace871956876
 # ╠═272fea0a-57f9-11ee-177c-5d1b630c6d3e
+# ╠═801095e7-c7a3-4686-b1da-7d340370512f
 # ╠═207bc1a1-d2f8-43e4-b8b3-22107978ab2f
 # ╠═51c5b832-2754-4eb8-9ca5-f7b0216a30b8
 # ╟─df7ed145-c609-4cd1-98eb-92c1a707ac4a
