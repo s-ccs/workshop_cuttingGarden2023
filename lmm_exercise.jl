@@ -110,7 +110,9 @@ A slider is defined like this:
 # add your slider here
 
 # ╔═╡ 0b009035-d91a-4c46-a762-3ae33e5bae18
-question_box(md"""Generate up to three sliders for the three parameters in `parameters`. Remember to change the `parameters` vector by replacing the current value with the `variablename` you gave the slider!
+question_box(md"""
+1. Generate up to three sliders for the three parameters in `parameters`.
+2. Remember to change the `parameters` vector by replacing the current value with the `variablename` you gave the slider!
 
 If you want to be fancy, you can get the σ, ρ, β characters by typing e.g. `\beta` + `TAB`
 """)
@@ -136,7 +138,7 @@ We start by simulating a design with a 2-level factor `condition` (🚗 vs. 😊
 begin
 design = MultiSubjectDesign(;
 		n_subjects = 20, n_items = 40,
-        items_between =Dict(:condition=>["car","face 😊"], 			
+        items_between =Dict(:condition=>["car","is_face? 😊"], 			
 							:continuous=>range(-5,5,length=10))) 
 first(generate(design),5)
 end
@@ -224,18 +226,17 @@ md"""
 For starters we want to fit a single LMM. Given we simulated a single channel right now, we only need to get the activity in the right time-window.
 """
 
-# ╔═╡ 52ace7dc-c435-4821-971c-e49dd36918d7
-m_roi = fit(MixedModel,@formula(roi_bsl~1+condition+(1+condition|subject)),evts);
-
-# ╔═╡ c92fbbeb-b1f9-4b3f-ba40-3d0bc88ba3cd
-DisplayAs.Text(m_roi)
+# ╔═╡ 30d27b0f-9219-49fb-9da4-48c111f7676e
+md"""
+Calculate ROI-value, baseline, and fit the model
+"""
 
 # ╔═╡ bac2de36-f031-4033-8fe8-87ad66250491
-aside(tip(md"Careful! These p-values are missleading, they are in most cases too small!"),v_offset=-170)
+aside(tip(md"Careful! These p-values can be missleading, they are in most cases too small!"),v_offset=-170)
 
 # ╔═╡ e60e3222-a563-401a-ac71-7cc86a6a5972
 question_box(md"""
-Do we have a "significant" face effect? How large is it compared to what we simulated?
+Do we have a "significant" face effect? How large is it compared to what we simulated? Why?
 """)
 
 # ╔═╡ d78b7df1-bd30-4bca-a5c9-40dfad22a2d9
@@ -256,6 +257,8 @@ A checkbox might be helpful:
 
 `$(@bind dobaseline PlutoUI.CheckBox()`
 
+And a julia shorthand for if/else: `dobaseline ? data_bsl : data`
+
 """)
 
 # ╔═╡ 668ab2c9-b3bb-4354-841c-4c7116831df1
@@ -267,7 +270,7 @@ md"""
 TODO("Finish this section with something more meaningfull than BSL")
 
 # ╔═╡ b6b7e722-33b0-48b7-98e5-85efe4c049f6
-times = range(-0.1,0.5,length=size(dat,1))
+times = range(-0.1,0.5,length=size(dat,1));
 
 # ╔═╡ 5bff1caf-ac56-4ee7-8164-43b23e523e2e
 begin
@@ -325,8 +328,13 @@ for s = unique(evts.subject)
 end
 evts.roi_bsl = evts.roi .- evts.bsl # bsl correct ROI
 
-	
+
+# Fit the model!
+m_roi = fit(MixedModel,@formula(roi~1+condition+(1+condition|subject)),evts);
 end;
+
+# ╔═╡ c92fbbeb-b1f9-4b3f-ba40-3d0bc88ba3cd
+DisplayAs.Text(m_roi)
 
 # ╔═╡ 06de74ec-c56b-4439-9c0d-5f04823e1a47
 md"""
@@ -337,10 +345,20 @@ Baseline Correct? $(@bind dobaseline PlutoUI.CheckBox())
 dat_bsl = dat .- mean(dat[times.<-0.05,:],dims=1);
 
 # ╔═╡ 8315f08c-3c76-433a-b9ee-4669a1b715d0
-uf =fit(UnfoldModel,@formula(0~1+condition+(1|item)+(1+condition|subject)),evts,dobaseline ? dat_bsl : dat,times);
+# ╠═╡ show_logs = false
+uf =fit(UnfoldModel,@formula(0~1+condition+(1|subject)),evts,dobaseline ? dat_bsl : dat,times);
 
 # ╔═╡ 2806dd13-a328-4d43-957b-51ec11f3d0d8
 plot_erp(coeftable(uf);mapping=(;col=:group),axis=(;limits=(-0.1,0.5,-6,12)))
+
+# ╔═╡ 1c513c17-99ae-4b0d-8caf-a3c5c4d81cf3
+question_box(
+	md"""
+	Play around with the model:
+	1. add a random slope for `condition`
+	1. add an `(1|item)` effect (be sure to put it before the subject effect, else you get an error)
+	"""
+)
 
 # ╔═╡ fc4bc561-ff65-414a-80fb-d2c2e3083656
 TableOfContents()
@@ -2680,8 +2698,8 @@ version = "3.5.0+0"
 # ╟─1fb9316e-0943-4ba9-964d-9ac8daf44eba
 # ╟─8b91f1ba-8667-489f-a396-6da5a238cbe8
 # ╠═c938df0c-944f-44a2-bff8-aa89ace5c95b
+# ╟─30d27b0f-9219-49fb-9da4-48c111f7676e
 # ╠═f6cdd050-2283-47d9-bd21-f61474c25d8b
-# ╠═52ace7dc-c435-4821-971c-e49dd36918d7
 # ╠═c92fbbeb-b1f9-4b3f-ba40-3d0bc88ba3cd
 # ╟─bac2de36-f031-4033-8fe8-87ad66250491
 # ╟─e60e3222-a563-401a-ac71-7cc86a6a5972
@@ -2695,6 +2713,7 @@ version = "3.5.0+0"
 # ╠═980e21c2-c7c3-46fd-8d61-f6c71e79a3a7
 # ╠═8315f08c-3c76-433a-b9ee-4669a1b715d0
 # ╠═2806dd13-a328-4d43-957b-51ec11f3d0d8
-# ╠═fc4bc561-ff65-414a-80fb-d2c2e3083656
+# ╟─1c513c17-99ae-4b0d-8caf-a3c5c4d81cf3
+# ╟─fc4bc561-ff65-414a-80fb-d2c2e3083656
 # ╟─00000000-0000-0000-0000-000000000001
 # ╟─00000000-0000-0000-0000-000000000002
