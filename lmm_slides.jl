@@ -20,6 +20,7 @@ begin
 	using PlutoUI
 	using Unfold
 	using UnfoldMakie
+	using MakieThemes
 	using UnfoldSim
 	using CairoMakie
 	using MixedModels
@@ -32,9 +33,10 @@ begin
 end
 
 # ╔═╡ 207bc1a1-d2f8-43e4-b8b3-22107978ab2f
+# ╠═╡ show_logs = false
 begin
 using AlgebraOfGraphics
-	const AoG = AlgebraOfGraphics
+const AoG = AlgebraOfGraphics
 end
 
 # ╔═╡ 335cfa71-7c95-4798-9872-7e063fbec871
@@ -43,14 +45,21 @@ using MixedModelsMakie
 # ╔═╡ 0e9e59db-35e1-419a-847a-3833cfed36a7
 using Random
 
+# ╔═╡ 0db9562f-90e4-4ca7-99b1-c0315ae1b88e
+using Distributions
+
 # ╔═╡ 4d7ee298-b43c-40ef-86e6-f5fe22d22d93
 using Kroki
 
 # ╔═╡ 2884d60d-53d2-4bbe-ac46-ace871956876
 ChooseDisplayMode()
 
-# ╔═╡ 801095e7-c7a3-4686-b1da-7d340370512f
-
+# ╔═╡ b8a96b87-7842-4541-a302-b77167775f3c
+let
+	t = ggthemr(:fresh)
+	t.fontsize = 30 # presentation fontsize
+set_theme!(t)
+end
 
 # ╔═╡ 51c5b832-2754-4eb8-9ca5-f7b0216a30b8
 TableOfContents()   # from PlutoUI
@@ -146,7 +155,7 @@ warning_box(md"All notebooks run on one server - Ressources are limited. Startin
 begin md"""
 
 # MixedModels.jl
-- faster (up to 100x!) (show other notebook)
+- faster (up to 100x!) [(Comparison R/Julia)](http://134.155.108.67:1234/edit?id=e2af0db2-5d6f-11ee-28fd-8f615d8cee3d)
 - deals slightly better with singular models, hardly fails model fit
 """ end
 
@@ -243,7 +252,7 @@ md"""
 """
 
 # ╔═╡ 1e142b58-9dad-438d-bd15-5fc879c70c5d
-plot_erp(res;mapping=(;color=:subject))
+plot_erp(res;mapping=(;color=:subject),legend=(;nbanks=2))
 
 # ╔═╡ ecd2f5ae-cc18-4c78-add8-3d5007672ef1
 begin md"""
@@ -411,10 +420,10 @@ Next step: Run a LMM on every timepoint!
 # ╠═╡ show_logs = false
 begin
 	data_bsl = data .- evts.bsl'
-lmm = fit(UnfoldModel,
+	lmm = fit(UnfoldModel,
 		@formula(0~1+condition+(1|item)+(1+condition+continuous|subject)),
-		evts,data_bsl,times) ;
-end
+		evts,data_bsl,times);
+end;
 
 # ╔═╡ 70cfdb7e-90eb-4917-a0ed-3c19e3bb9ccd
 begin md"""
@@ -423,7 +432,14 @@ begin md"""
 """ end
 
 # ╔═╡ c8328aa0-b132-476f-a7b9-af2e1e120890
-plot_erp(coeftable(lmm);mapping=(;col = :group))
+begin
+	with_theme(fontsize=20) do
+plot_erp(coeftable(lmm);mapping=(;col = :group),axis=(;ylabel=""))
+	end
+end
+
+# ╔═╡ dac6a607-26c3-4f65-9fab-d19acaa06b52
+Legend
 
 # ╔═╡ 3f0d7489-e8b1-45cf-8ecd-bdd7a310ef4f
 begin md"""
@@ -433,56 +449,47 @@ It is reasonable to assume, that the baselineperiod shouldnt show much random ef
 
 """ end
 
+# ╔═╡ c4778dd8-3f7c-4ba1-adb7-bd49db173b8d
+md"""
+The required complexity of the random effects structure changes over time
+"""
+
 # ╔═╡ ad97a4f8-92a7-4d17-ada6-c08880296b86
-PlutoTeachingTools.question_box(md"Open question: Should one perform a different model per time-point?")
+PlutoTeachingTools.question_box(md"**Open question:** Should one perform a different model per time-point?")
 
-# ╔═╡ 4caad300-f137-4321-b1ee-0d4d38ec12cf
-begin md"""
-## Outlook: Multiple comparison problem
-The multiple comparison problem can be easily visualized for this EEG data
+# ╔═╡ 0842e6f0-1311-497a-bda1-80aecc03a7b7
+md"""
+## Different techniques, different results
+"""
 
-= > MixedModelsPermutations.jl
-= > ClusterPermutation test
-= > link to other preprint for ""(1|subj)"" - case
-""" 
-end
+# ╔═╡ 49a2d80a-d957-4390-a6d0-372f5c161148
+md"""
+We mentioned it before: If we use different p-value methods, we will get different results!
 
-# ╔═╡ e6e2d6f9-a774-4f8e-a04c-d550366859e4
-TODO("ADD CURRENT RESULTS MixedModelsPermutations.jl")
-
-# ╔═╡ 30d4c647-6537-4418-b679-abaea4135254
-MixedModels.likelihoodratiotest
+E.g. **likelihood-ratio** vs. **Walds-z**
+"""
 
 # ╔═╡ 5bb4e2b2-f82a-42fd-bb1d-cc74dce10201
+# ╠═╡ show_logs = false
 begin
-	f0 = @formula(0~1+          (1|item)+(1+condition+continuous|subject))
-	f1 = @formula(0~1+condition+(1|item)+(1+condition+continuous|subject))
+	f0 = @formula(0~1+          (1+condition|subject))
+	f1 = @formula(0~1+condition+(1+condition|subject))
 	
 	m0 = fit(UnfoldModel,f0,evts,data_bsl,times) 
 	m1 = fit(UnfoldModel,f1,evts,data_bsl,times) 
 	
-end
+end;
 
-# ╔═╡ 399b49c4-ec87-4fae-9608-20d350303d36
-let
-	pval = vcat(pvalues(likelihoodratiotest(m1,m0))...)
-	replace!(pval, NaN=>0.999)
-f,ax,c = scatterlines(pval)
-	ylims!(ax,0.001,1)
-	ax.yscale = Makie.log10
-	ax.yticks = [1,0.05,0.01]
-	ax.ylabel = "LRT p-value"
-hlines!([0.05])
-	f
-end
+# ╔═╡ bcc12956-d719-4516-b629-4998368e125d
+question_box(md"""
+**Open Question:** What is the "correct" method we should use for EEG-LMMs? 
 
-# ╔═╡ 7313a038-49c2-4aa8-9f1e-de51fbcff774
-TODO("ADD OUTLOOK CLUSTERPERMUTATIONTEST?")
+**Open Question:** Should we combine them with Cluster-Permutation tests somehow?
+""")
 
 # ╔═╡ ace7c106-010f-469b-9373-825a2a39ab47
 begin md"""
 ## How much data?
-
 """
 end
 
@@ -494,6 +501,21 @@ begin md"""
 ## Is it even worth it?
 
 """ end
+
+# ╔═╡ 760d1df2-a0f1-4434-b9c1-83a354efe935
+md"""
+![](https://github.com/s-ccs/workshop_cuttingGarden2023/blob/main/img/2023-10-12%2019_46_53-masterthesis_luis_lips.pdf%20-%20Adobe%20Acrobat%20Pro%20(32-bit).png?raw=true)
+Preliminary work by **Luis Lips** (MSc Student) & **Judith Schepers** (Doctoral Researcher).
+"""
+
+# ╔═╡ 4c2e1452-70f0-4779-bffa-332b4768e9b8
+md"""
+## To LMM or not to LMM?
+![](https://i.imgflip.com/82ctht.jpg)
+"""
+
+# ╔═╡ b7860683-7149-4418-bf2f-762523777d32
+warning_box(md"**Preliminary conclusion**")
 
 # ╔═╡ 69e7811e-6f9d-4b5e-8530-6ba9f3bc8648
 Kroki.Diagram(:Mermaid,"""
@@ -521,8 +543,55 @@ md"""
 You are now ready for the last exercise, your very own mass univariate LMMs!
 """
 
+# ╔═╡ 4caad300-f137-4321-b1ee-0d4d38ec12cf
+begin md"""
+## Outlook: Multiple comparison problem
+Let's add some p-values via the Walds-z test (assuming ∞ degrees of freedom...)
+""" 
+end
+
+# ╔═╡ 243daf01-2d33-4856-8ccc-228fc77f685b
+# ╠═╡ show_logs = false
+begin
+	fixef = subset(coeftable(lmm),:group=> x->isnothing.(x))
+	fixef.tvalue = fixef.estimate ./ fixef.stderror
+	fixef.pvalue = cdf.(Normal(),.- abs.(fixef.tvalue))
+	psigix = fixef.pvalue .<=0.1
+	pval = DataFrame(from=fixef.time[psigix],to=fixef.time[psigix],coefname=fixef.coefname[psigix])
+	plot_erp(fixef;extra=(;pvalue=pval))
+end
+
+# ╔═╡ 399b49c4-ec87-4fae-9608-20d350303d36
+let
+	pval = vcat(pvalues(likelihoodratiotest(m1,m0))...)
+	replace!(pval, NaN=>0.999)
+	
+f,ax,c = scatterlines(times,pval,label="LRT")
+	c2 = scatterlines!(times,fixef.pvalue[fixef.coefname.=="condition: face"],label="walds-z")
+	Legend(f[1,1],ax,tellwidth=false,framevisible=false)
+	ylims!(ax,0.000001,1)
+	ax.yscale = Makie.log10
+	ax.yticks = [1,0.05,0.01]
+	ax.ylabel = "p-value (log)"
+	ax.xlabel = "time [s]"
+hlines!([0.05],color=:black)
+	f
+end
+
+# ╔═╡ 55a1ac5c-3099-403a-a845-024457e7e4e1
+md"""
+We find significant effects in the baseline - not what we want!
+"""
+
+# ╔═╡ 01c375f2-b3a5-488b-b9d2-3710e3b2c406
+md"""
+## Sneakpeak MixedModelsPermutations
+![](https://github.com/s-ccs/workshop_cuttingGarden2023/blob/main/img/2023-10-12_prelimResultsLMMPermutation.png?raw=true)
+Our method (pink) is comparable to the computation-heavy Kenward-Roger, but compatible with cluster-permutation tests!
+"""
+
 # ╔═╡ 4987f247-fb2c-4cb7-a875-131ccbb09c3b
-		bLMMext = Base.get_extension(Unfold,:UnfoldMixedModelsExt)
+		bLMMext = Base.get_extension(Unfold,:UnfoldMixedModelsExt);
 
 
 # ╔═╡ 485f5765-eabf-43b2-b081-156cb223fdb7
@@ -541,7 +610,13 @@ You are now ready for the last exercise, your very own mass univariate LMMs!
 MixedModels.rePCA(mcc)
 
 # ╔═╡ 87486239-2882-4033-bb74-23d0959ef054
-series(MixedModels.rePCA(lmm)[:subject])
+let
+f,ax,s = series(times,MixedModels.rePCA(lmm)[:subject].*100,labels=["1","2","3"])
+	ax.xlabel = "time [s]"
+	ax.ylabel = "explained variance by principle component [%]"
+	Legend(f[1,2],ax)
+	f
+end
 
 # ╔═╡ 00000000-0000-0000-0000-000000000001
 PLUTO_PROJECT_TOML_CONTENTS = """
@@ -552,8 +627,10 @@ Chain = "8be319e6-bccf-4806-a6f7-6fae938471bc"
 DataFrames = "a93c6f00-e57d-5684-b7b6-d8193f3e46c0"
 DataFramesMeta = "1313f7d8-7da2-5740-9ea0-a2ca25f37964"
 DisplayAs = "0b91fe84-8a4c-11e9-3e1d-67c38462b6d6"
+Distributions = "31c24e10-a181-5473-b8eb-7969acd0382f"
 HypertextLiteral = "ac1192a8-f4b3-4bfe-ba22-af5b92cd3ab2"
 Kroki = "b3565e16-c1f2-4fe9-b4ab-221c88942068"
+MakieThemes = "e296ed71-da82-5faf-88ab-0034a9761098"
 MixedModels = "ff71e718-51f3-5ec2-a782-8ffcbfa3c316"
 MixedModelsMakie = "b12ae82c-6730-437f-aff9-d2c38332a376"
 PlutoTeachingTools = "661c6b06-c737-4d37-b85c-46df65de6f69"
@@ -571,8 +648,10 @@ Chain = "~0.5.0"
 DataFrames = "~1.6.1"
 DataFramesMeta = "~0.14.0"
 DisplayAs = "~0.1.6"
+Distributions = "~0.25.102"
 HypertextLiteral = "~0.9.4"
 Kroki = "~0.2.0"
+MakieThemes = "~0.1.0"
 MixedModels = "~4.22.1"
 MixedModelsMakie = "~0.3.27"
 PlutoTeachingTools = "~0.2.13"
@@ -588,7 +667,7 @@ PLUTO_MANIFEST_TOML_CONTENTS = """
 
 julia_version = "1.9.2"
 manifest_format = "2.0"
-project_hash = "8417c6a0bc4d8e8a0af8c9b012ea245a98095895"
+project_hash = "5a2079614802620d32058c362d03c705aa56a995"
 
 [[deps.AbstractFFTs]]
 deps = ["LinearAlgebra"]
@@ -1750,6 +1829,12 @@ git-tree-sha1 = "a94bf3fef9c690a2a4ac1d09d86a59ab89c7f8e4"
 uuid = "20f20a25-4f0e-4fdf-b5d1-57303727442b"
 version = "0.6.8"
 
+[[deps.MakieThemes]]
+deps = ["Colors", "Makie", "Random"]
+git-tree-sha1 = "22f0ac33ecb2827e21919c086a74a6a9dc7932a1"
+uuid = "e296ed71-da82-5faf-88ab-0034a9761098"
+version = "0.1.0"
+
 [[deps.MappedArrays]]
 git-tree-sha1 = "2dab0221fe2b0f2cb6754eaa743cc266339f527e"
 uuid = "dbb5928d-eab1-5f90-85c2-b9b0edb7c900"
@@ -2832,8 +2917,8 @@ version = "3.5.0+0"
 # ╔═╡ Cell order:
 # ╠═2884d60d-53d2-4bbe-ac46-ace871956876
 # ╠═272fea0a-57f9-11ee-177c-5d1b630c6d3e
-# ╠═801095e7-c7a3-4686-b1da-7d340370512f
 # ╠═207bc1a1-d2f8-43e4-b8b3-22107978ab2f
+# ╠═b8a96b87-7842-4541-a302-b77167775f3c
 # ╠═51c5b832-2754-4eb8-9ca5-f7b0216a30b8
 # ╟─df7ed145-c609-4cd1-98eb-92c1a707ac4a
 # ╠═8d71c769-333f-46af-9690-edc8ad4dc1dd
@@ -2894,28 +2979,37 @@ version = "3.5.0+0"
 # ╟─6c4241f4-6afd-4ea1-acfd-4b571e19743d
 # ╠═f3254c3f-c868-4e59-a526-0293c614988a
 # ╠═6b4e4f80-b8bc-49b0-ac36-b1ad766d72d7
-# ╠═e590053c-6f5d-40f5-a674-7b34a21f2f10
+# ╟─e590053c-6f5d-40f5-a674-7b34a21f2f10
 # ╟─0822b956-d268-4028-9a41-422947975d78
 # ╠═68b4768e-c085-4a0a-8df8-6c4e7639213a
 # ╟─70cfdb7e-90eb-4917-a0ed-3c19e3bb9ccd
 # ╠═c8328aa0-b132-476f-a7b9-af2e1e120890
+# ╠═dac6a607-26c3-4f65-9fab-d19acaa06b52
 # ╟─3f0d7489-e8b1-45cf-8ecd-bdd7a310ef4f
+# ╟─87486239-2882-4033-bb74-23d0959ef054
+# ╟─c4778dd8-3f7c-4ba1-adb7-bd49db173b8d
 # ╟─ad97a4f8-92a7-4d17-ada6-c08880296b86
-# ╠═87486239-2882-4033-bb74-23d0959ef054
-# ╠═4caad300-f137-4321-b1ee-0d4d38ec12cf
-# ╠═e6e2d6f9-a774-4f8e-a04c-d550366859e4
-# ╠═30d4c647-6537-4418-b679-abaea4135254
+# ╟─0842e6f0-1311-497a-bda1-80aecc03a7b7
+# ╟─49a2d80a-d957-4390-a6d0-372f5c161148
 # ╠═5bb4e2b2-f82a-42fd-bb1d-cc74dce10201
 # ╟─399b49c4-ec87-4fae-9608-20d350303d36
-# ╠═7313a038-49c2-4aa8-9f1e-de51fbcff774
-# ╠═ace7c106-010f-469b-9373-825a2a39ab47
+# ╟─bcc12956-d719-4516-b629-4998368e125d
+# ╟─ace7c106-010f-469b-9373-825a2a39ab47
 # ╟─6a195e7d-8404-40da-84d2-d258d8a1c16d
-# ╠═4d7ee298-b43c-40ef-86e6-f5fe22d22d93
 # ╟─ffc61e53-954a-401b-b615-0264f7727ddf
+# ╟─760d1df2-a0f1-4434-b9c1-83a354efe935
+# ╟─4c2e1452-70f0-4779-bffa-332b4768e9b8
+# ╟─b7860683-7149-4418-bf2f-762523777d32
 # ╟─69e7811e-6f9d-4b5e-8530-6ba9f3bc8648
 # ╟─6eb29bb8-c753-4102-954a-340b8641f99d
 # ╟─d524dde5-3790-4815-bc1d-6a79afcef1ef
-# ╠═485f5765-eabf-43b2-b081-156cb223fdb7
-# ╠═4987f247-fb2c-4cb7-a875-131ccbb09c3b
+# ╟─485f5765-eabf-43b2-b081-156cb223fdb7
+# ╟─4caad300-f137-4321-b1ee-0d4d38ec12cf
+# ╠═243daf01-2d33-4856-8ccc-228fc77f685b
+# ╟─55a1ac5c-3099-403a-a845-024457e7e4e1
+# ╟─01c375f2-b3a5-488b-b9d2-3710e3b2c406
+# ╟─4987f247-fb2c-4cb7-a875-131ccbb09c3b
+# ╟─0db9562f-90e4-4ca7-99b1-c0315ae1b88e
+# ╟─4d7ee298-b43c-40ef-86e6-f5fe22d22d93
 # ╟─00000000-0000-0000-0000-000000000001
 # ╟─00000000-0000-0000-0000-000000000002

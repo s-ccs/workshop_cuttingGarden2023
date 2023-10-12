@@ -16,11 +16,15 @@ end
 
 # ╔═╡ d9912a4c-5d3a-11ee-381e-03ad95d59994
 begin
-	using Unfold,UnfoldSim,UnfoldMakie, MixedModels,DisplayAs
-	using CairoMakie
-	using Random,DataFrames,StatsBase
-	using PlutoUI,PlutoTables, PlutoTeachingTools
-	using StableRNGs
+	using Unfold # LMM analysis
+	using UnfoldSim # Simulation
+	using UnfoldMakie,CairoMakie # Plotting + Backend
+	using MixedModels # LMM backend
+	using DisplayAs # better display
+	using Random,StableRNGs,DataFrames,StatsBase, Distributions # some helpers
+	using PlutoUI,PlutoTables, PlutoTeachingTools # better Pluto Displays
+	using MakieThemes
+	set_theme!(ggthemr(:fresh))
 end
 
 # ╔═╡ f65f535c-e9f3-4972-ad20-42eeaac43427
@@ -266,9 +270,6 @@ md"""
 # Task 4: Mass univariate MixedModels
 """
 
-# ╔═╡ c2de350c-6db9-4c4a-8d2d-32805a48d932
-TODO("Finish this section with something more meaningfull than BSL")
-
 # ╔═╡ b6b7e722-33b0-48b7-98e5-85efe4c049f6
 times = range(-0.1,0.5,length=size(dat,1));
 
@@ -336,13 +337,13 @@ end;
 # ╔═╡ c92fbbeb-b1f9-4b3f-ba40-3d0bc88ba3cd
 DisplayAs.Text(m_roi)
 
+# ╔═╡ 980e21c2-c7c3-46fd-8d61-f6c71e79a3a7
+dat_bsl = dat .- mean(dat[times.<-0.05,:],dims=1);
+
 # ╔═╡ 06de74ec-c56b-4439-9c0d-5f04823e1a47
 md"""
 Baseline Correct? $(@bind dobaseline PlutoUI.CheckBox())
 """
-
-# ╔═╡ 980e21c2-c7c3-46fd-8d61-f6c71e79a3a7
-dat_bsl = dat .- mean(dat[times.<-0.05,:],dims=1);
 
 # ╔═╡ 8315f08c-3c76-433a-b9ee-4669a1b715d0
 # ╠═╡ show_logs = false
@@ -369,6 +370,8 @@ PLUTO_PROJECT_TOML_CONTENTS = """
 CairoMakie = "13f3f980-e62b-5c42-98c6-ff1f3baf88f0"
 DataFrames = "a93c6f00-e57d-5684-b7b6-d8193f3e46c0"
 DisplayAs = "0b91fe84-8a4c-11e9-3e1d-67c38462b6d6"
+Distributions = "31c24e10-a181-5473-b8eb-7969acd0382f"
+MakieThemes = "e296ed71-da82-5faf-88ab-0034a9761098"
 MixedModels = "ff71e718-51f3-5ec2-a782-8ffcbfa3c316"
 PlutoTables = "e64c0356-fa58-4209-b01c-f6c8ed5474f5"
 PlutoTeachingTools = "661c6b06-c737-4d37-b85c-46df65de6f69"
@@ -384,6 +387,8 @@ UnfoldSim = "ed8ae6d2-84d3-44c6-ab46-0baf21700804"
 CairoMakie = "~0.10.10"
 DataFrames = "~1.6.1"
 DisplayAs = "~0.1.6"
+Distributions = "~0.25.101"
+MakieThemes = "~0.1.0"
 MixedModels = "~4.22.1"
 PlutoTables = "~0.1.5"
 PlutoTeachingTools = "~0.2.13"
@@ -401,7 +406,7 @@ PLUTO_MANIFEST_TOML_CONTENTS = """
 
 julia_version = "1.9.2"
 manifest_format = "2.0"
-project_hash = "004358f8f4033a88dc83426f6dd967905aa93432"
+project_hash = "ca159625a43376b4f35998e9e3fb9f6a40dced29"
 
 [[deps.AbstractFFTs]]
 deps = ["LinearAlgebra"]
@@ -1595,6 +1600,12 @@ git-tree-sha1 = "17d51182db2667962bc7e1d18b74881d0d0adbe6"
 uuid = "20f20a25-4f0e-4fdf-b5d1-57303727442b"
 version = "0.6.7"
 
+[[deps.MakieThemes]]
+deps = ["Colors", "Makie", "Random"]
+git-tree-sha1 = "22f0ac33ecb2827e21919c086a74a6a9dc7932a1"
+uuid = "e296ed71-da82-5faf-88ab-0034a9761098"
+version = "0.1.0"
+
 [[deps.MappedArrays]]
 git-tree-sha1 = "2dab0221fe2b0f2cb6754eaa743cc266339f527e"
 uuid = "dbb5928d-eab1-5f90-85c2-b9b0edb7c900"
@@ -2707,12 +2718,11 @@ version = "3.5.0+0"
 # ╟─5e3c5c35-6ce1-4196-bda3-fdf5426650a1
 # ╟─33eb0e21-2cac-481a-bec7-0dec8f4e5fa2
 # ╟─668ab2c9-b3bb-4354-841c-4c7116831df1
-# ╠═c2de350c-6db9-4c4a-8d2d-32805a48d932
 # ╠═b6b7e722-33b0-48b7-98e5-85efe4c049f6
-# ╟─06de74ec-c56b-4439-9c0d-5f04823e1a47
 # ╠═980e21c2-c7c3-46fd-8d61-f6c71e79a3a7
 # ╠═8315f08c-3c76-433a-b9ee-4669a1b715d0
 # ╠═2806dd13-a328-4d43-957b-51ec11f3d0d8
+# ╟─06de74ec-c56b-4439-9c0d-5f04823e1a47
 # ╟─1c513c17-99ae-4b0d-8caf-a3c5c4d81cf3
 # ╟─fc4bc561-ff65-414a-80fb-d2c2e3083656
 # ╟─00000000-0000-0000-0000-000000000001
