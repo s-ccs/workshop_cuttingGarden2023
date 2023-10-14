@@ -16,6 +16,8 @@ end
 
 # ╔═╡ d9912a4c-5d3a-11ee-381e-03ad95d59994
 begin
+	using Pkg
+	Pkg.activate(expanduser("~/workshop_cuttingGarden2023/sysimage"))
 	using Unfold # LMM analysis
 	using UnfoldSim # Simulation
 	using UnfoldMakie,CairoMakie # Plotting + Backend
