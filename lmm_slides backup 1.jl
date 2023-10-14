@@ -14,392 +14,565 @@ macro bind(def, element)
     end
 end
 
-# ╔═╡ d9912a4c-5d3a-11ee-381e-03ad95d59994
+# ╔═╡ 272fea0a-57f9-11ee-177c-5d1b630c6d3e
 begin
-	using Unfold # LMM analysis
-	using UnfoldSim # Simulation
-	using UnfoldMakie,CairoMakie # Plotting + Backend
-	using MixedModels # LMM backend
-	using DisplayAs # better display
-	using Random,StableRNGs,DataFrames,StatsBase, Distributions # some helpers
-	using PlutoUI,PlutoTables, PlutoTeachingTools # better Pluto Displays
-	using MakieThemes
-	set_theme!(ggthemr(:fresh))
+	using PlutoTeachingTools
+	using PlutoUI
+	using Unfold
+	using UnfoldMakie
+	using UnfoldSim
+	using CairoMakie
+	using MixedModels
+	using DataFrames
+	using DataFramesMeta
+	using Chain
+	using Statistics
+	using DisplayAs
+	using HypertextLiteral
 end
 
-# ╔═╡ f65f535c-e9f3-4972-ad20-42eeaac43427
+# ╔═╡ 207bc1a1-d2f8-43e4-b8b3-22107978ab2f
+begin
+using AlgebraOfGraphics
+	const AoG = AlgebraOfGraphics
+end
+
+# ╔═╡ 335cfa71-7c95-4798-9872-7e063fbec871
+using MixedModelsMakie
+
+# ╔═╡ 0e9e59db-35e1-419a-847a-3833cfed36a7
+using Random
+
+# ╔═╡ 4d7ee298-b43c-40ef-86e6-f5fe22d22d93
+using Kroki
+
+# ╔═╡ 2884d60d-53d2-4bbe-ac46-ace871956876
+ChooseDisplayMode()
+
+# ╔═╡ 801095e7-c7a3-4686-b1da-7d340370512f
+
+
+# ╔═╡ 51c5b832-2754-4eb8-9ca5-f7b0216a30b8
+TableOfContents()   # from PlutoUI
+
+# ╔═╡ df7ed145-c609-4cd1-98eb-92c1a707ac4a
+begin md"""
+# Why Mixed Models
+## Dependencies
+An example where datapoints do not have dependencies:
+
+> Ask 10 subjects to each throw a coin 20 times
+
+""" end
+
+# ╔═╡ 8d71c769-333f-46af-9690-edc8ad4dc1dd
+let
+	
+k = []
+for subj = 1:10
+	append!(k,rand(["head","tail"],20))
+end
+sum(k.=="head") / 10*10
+
+end
+
+# ╔═╡ 89d53895-d24d-4b3b-94dd-6657dfd4a1e1
 md"""
-# Task 1: Get to know Pluto.jl
-Interactive get-to-know julia + LMMs + EEG notebook for the **Cutting-Garden 2023**
+An example where datapoints **have** dependencies:
 
-Author: [Benedikt Ehinger](www.s-ccs.de)
+> Ask 10 subjects to perform a reaction task 20 times
+"""
 
+# ╔═╡ 0902eb8a-add8-4397-8c1c-7ebd78f7b704
+md"""
 ---
 """
 
-# ╔═╡ 363cb188-97c7-4ece-b416-08256da0b5f9
+# ╔═╡ 5d853d9e-5219-48da-8c09-ca89b5e3516d
+aside(@bind lmm_fig_id PlutoUI.Slider(1:10,show_value=true);v_offset = -450)
+
+# ╔═╡ 1c258789-fbb9-49b9-aa4c-7de3dde8f952
+begin
+
+LocalResource("./img/lmm_item ($lmm_fig_id).SVG") # add html attributes
+end
+
+# ╔═╡ 789a453f-3a2d-4161-85cd-8724f496a800
+if lmm_fig_id == 4
+aside(warning_box(md""" P-Values too small! Don't do this!"""),v_offset=-450)
+end
+
+# ╔═╡ 5568e23e-720e-4dd6-818f-c91c4ad63153
 md"""
-What follows is some simple code to get an interesting plot. The idea is to get to know Pluto.jl a little bit & implement a simple interactive slider.
+## Linear Mixed Models
+> Encouraging psycholinguists to use linear mixed-effects models is like giving shotguns to toddlers
+
+Be warned and be careful - but MixedModels are sometimes nice, and sometimes necessary!
 """
 
-# ╔═╡ 47627344-61e0-4992-84a9-612a5e6798f3
-PlutoTeachingTools.warning_box(md"No need to understand the code, you can simply skip it for now and look back at it at a more relaxed point in time")
+# ╔═╡ 29d7a01a-1d4d-44ed-8eea-370e26fe2261
+md"""
+## Excourse: A word about Pluto.jl
+"""
 
-# ╔═╡ 4de80b12-59c8-4cee-86d7-d13463fa263a
-function lorenz_step!(state,fixed,Δt)
-    x, y, z = state   # current state
-	σ, ρ, β = fixed   # current coefficients
-    
-    dx = σ*(y-x)
-    dy = x*(ρ-z) - y
-    dz = x*y - β*z
-	state .= [x + Δt*dx,
-			y + Δt*dy,
-			z + Δt*dz]
-	return  copy(state)
+# ╔═╡ 1ea7caa3-62d0-4d89-af5d-33b0d55e7cea
+# moonphases = collect('🌑':'🌘')
+
+# ╔═╡ 3ddff009-ea75-4def-92a3-be2927cf469f
+#@bind clock PlutoUI.Slider(1:length(moonphases),show_value=true)
+#@bind clock PlutoUI.Clock(;start_running=false,interval=0.5)
+
+# ╔═╡ 49049fb6-13ad-4cf1-84dd-f3b9e283d9c3
+#moonindex = clock
+
+# ╔═╡ 230c76a5-3ff9-487c-b60e-ea9f186bb260
+#moonindex = Int(mod(clock-1,length(moonphases))+1)
+
+# ╔═╡ 62b05841-8cca-4112-828c-f403bacf88e6
+#@htl """<span style="font-size: 10rem;">$(moonphases[moonindex])</span>"""
+
+# ╔═╡ faa80c8f-320c-4cce-b1dc-2d5bb90cb82b
+md"""
+## **Exercise 1**: Give Pluto a spin!
+Goto [workshop.s-ccs.de](http://workshop.s-ccs.de). Your very own Pluto Notebook will spawn.
+"""
+
+# ╔═╡ c4e11076-7e62-408c-b7e3-c787b04fb7ab
+warning_box(md"All notebooks run on one server - Ressources are limited. Starting times to be expected!!
+
+**To save ressources: Please find a partner to work together**")
+
+# ╔═╡ daed0b75-27e7-4f09-aab4-5b561ff542a6
+begin md"""
+
+# MixedModels.jl
+- faster (up to 100x!) (show other notebook)
+- deals slightly better with singular models, hardly fails model fit
+""" end
+
+# ╔═╡ c3fe1433-805a-4008-972d-757a9c3f4f70
+md"""
+## A first Julia-LMM fit
+"""
+
+# ╔═╡ a0faafbb-9b9c-4d46-812b-84d818ae2f50
+sleepstudy = MixedModels.dataset(:sleepstudy)
+
+# ╔═╡ 71bc5650-c7da-4cf3-b7ea-b85445d3515b
+ fit2() = fit(MixedModel, @formula(reaction ~ 1 + days + (1 + days|subj)), sleepstudy)
+
+# ╔═╡ ad09c178-e39e-42bd-a142-2a63b6a98445
+@time fit2() |> DisplayAs.Text
+
+# ╔═╡ 8b1291a5-6b15-4342-abb3-98e2b866ea7d
+aside(PlutoTeachingTools.warning_box(md"""
+Be careful with the p-value! It assumes `number_subjects -> ∞`!. For ROI analyses, probably better to just go to R and use Kenward-Rogers
+"""),v_offset=-200)
+
+# ╔═╡ aadc8079-46c1-44bf-a96a-bd117c4ec66a
+md"""
+## Visualization
+We can visualize some aspects of the LMM, first the random effects, then the shrinkage between parameters
+"""
+
+# ╔═╡ 97fa4d4d-428c-4ebc-88f9-33bd4f3ab095
+md"""
+First the "best" individual subject parameter estimates
+"""
+
+# ╔═╡ 3b8c1122-6308-45da-9c27-524afbbc8818
+caterpillar(fit2())
+
+# ╔═╡ 85613267-c23e-4824-9bd6-37e5e3c128e0
+md"""
+We can also look at the shrinkage plot. The **red** dots are the estimates "without" a MixedModels, the **blue** one are the shrinked ones, after taking the other subjects into account
+"""
+
+# ╔═╡ dd1fd9e7-a05f-419c-ab79-2370fc147da0
+shrinkageplot(fit2(),ellipse=true)
+
+# ╔═╡ a571b7a8-9f0c-4ff1-b218-a03e09a3fa67
+begin md"""
+# LMMs + EEG
+We will use the Unfold.jl + UnfoldSim.jl toolboxes to simplify simulation and analysis of the EEG data; especially later when we analyse signals over time
+
+	""" end
+
+# ╔═╡ eaf0e631-b47b-4ef0-bab5-766283671902
+md"""
+## Simulating data
+"""
+
+# ╔═╡ fed5a298-d1af-4350-9561-5fe4afb3e831
+# ╠═╡ show_logs = false
+begin
+data,evts = UnfoldSim.predef_eeg(
+		MersenneTwister(1),15;  # 15 subjects
+		noiselevel=15, # add some noise (pink by default)
+		return_epoched=true)  # epoch it already
+
+times = range(-0.1,stop=0.6,length=45); # some fake time data
 end;
 
-# ╔═╡ e4b321f8-e5e4-4459-aa89-9d8d9c640d4d
-aside(tip(md"""
-This function calculates the Lorenz-Attractor.
-
-Notice the `!` at `lorenz_step!`, it indicates that the function is modifying a container of the input (in this case it updates `state`)
-"""),v_offset=-250)
-
-# ╔═╡ 3cbe1c9d-d3e3-4757-ba8d-2867e37b1dbe
-tip(md"""
-`Pluto.jl` puts the outputs on top of the cell, not below
-""")
-
-# ╔═╡ 65befddb-2542-473e-8b3b-0b5c5b9fe839
-question_box(md"""Try changing one of the values below of the `parameter` Array - does the plot update?
-
-Tip: `Shift`+`Enter` or `Ctrl`+`S` will automatically run a cell
-""")
-
-# ╔═╡ a851ef86-c830-4de3-b485-8997f9e5b81c
-	parameters = [1.0,10,7/8]
-
-# ╔═╡ f2ea0255-720b-4689-ac7d-798ef1d0c990
+# ╔═╡ 632fb5e5-ea80-4c44-97f0-3c413a4f8635
 begin
-	state0 = [1.0,0,0]
-	Δt = 0.05
-	res = hcat([lorenz_step!(state0,parameters,Δt) for s in 1:1000]...)
-end
-
-# ╔═╡ ae74ba42-1aaa-4498-84e2-7633c64a3a37
-let # enforces local scope, you cannot access variables from here outside this cell
-	if any(isnan,res) | !all(isfinite,res)
-		danger(md"Can't show the figure: Your parameters created values that are Infinite - please use different parameters!")
-	else
-	f,ax,l = lines(res[1,:],res[2,:]; color = res[3,:])
-	xlims!(ax,-8,8)
-	f
-	end
-end
-
-# ╔═╡ 8d0da37e-25bf-42e0-82cc-72cd24a5c82d
-md"""
-We can easily use Sliders instead of fixing the parameters. 
-
-A slider is defined like this:
-```julia
-@bind yourvariable PlutoUI.Slider(from:1:to,show_value=true,
-					default=defaultvalue) # be sure to choose something else than 0!
- 
-```
-"""
-
-# ╔═╡ c9f67a9a-7862-4f51-93c9-ae644fc836dc
-# add your slider here
-
-# ╔═╡ 0b009035-d91a-4c46-a762-3ae33e5bae18
-question_box(md"""
-1. Generate up to three sliders for the three parameters in `parameters`.
-2. Remember to change the `parameters` vector by replacing the current value with the `variablename` you gave the slider!
-
-If you want to be fancy, you can get the σ, ρ, β characters by typing e.g. `\beta` + `TAB`
-""")
-
-# ╔═╡ bd2bfaab-86f5-4914-8825-87894b6a182f
-Markdown.MD(Markdown.Admonition("tip","Bonus-Question",[md"""
-If you have time, provide some `PlutoUI.CheckBox` or `PlutoUI.Select` elements, to change which dimension is plotted on the x/y axis
-"""]))
-
-
-# ╔═╡ ea71ee25-35bf-49bb-a869-db2cfe98c6f3
-md"""
-# Task 2: Simulating Multi-subject EEG
-"""
-
-# ╔═╡ 4a23c228-9494-4a59-8c3f-0b4d1621e322
-md"""
-### Experimental Design
-We start by simulating a design with a 2-level factor `condition` (🚗 vs. 😊) and one `continuous` effect from -5:5. We simulate 20 subjects, and 40 items for now.
-"""
-
-# ╔═╡ e40bf805-8479-41a6-9083-5d1471a2bc5d
-begin
-design = MultiSubjectDesign(;
-		n_subjects = 20, n_items = 40,
-        items_between =Dict(:condition=>["car","is_face? 😊"], 			
-							:continuous=>range(-5,5,length=10))) 
-first(generate(design),5)
-end
-
-# ╔═╡ 8371a599-2165-477c-ace3-4f3eb77b5004
-md"""
-### ERP effects
-Next we simulating three components, a P1, a N1, and a P300. For each we have to specify the `fixed` effects `β` and the respective `random` effects `σs`.
-"""
-
-# ╔═╡ 56054c8b-02e2-4fb0-a194-fa0c562efa9c
-md"""
-### Simulate the data
-We add some PinkNoise with a certain noiselevel (you can ignore the UniformOnset, that is for continuous data modelling)
-"""
-
-# ╔═╡ 53ad0364-f7ad-4b27-90f8-f4e06bc26c22
-md"""
-### Analyze the data
-Let's run a 2-stage ERP analysis, extracting the intercept (condition = 🚗) and difference of condition (😊 - 🚗).
-"""
-
-# ╔═╡ cf5c8e9d-44bd-4701-910e-232972b0195d
-md"""
-To get an overview, here you can see the output we get - a nice 🧹tidy dataframe.
-"""
-
-# ╔═╡ cdc4b2d3-4d9d-4b56-8153-7175cd86acc4
-md"""
-Finally, let's plot what we have simulated.
-"""
-
-# ╔═╡ 1f9c0f4d-feff-4b92-b5f5-e03b92ff8bba
-nl_slider = @bind noiselevel PlutoUI.Slider(1:2:40,show_value=true);
-
-# ╔═╡ 82ef9822-c2db-4590-8aa2-6d8bb38264a5
-σs_n1_intercept_slider = @bind σs_n1_intercept PlutoUI.Slider(0:1:10,default=1,show_value=true);
-
-# ╔═╡ b3122077-dfae-4117-a90f-1f837a1d1196
-   begin
-	   
-   sfreq = 50 # please keep this low to not take too much CPU of other users :-)
-   p1 = MixedModelComponent(;basis=p100(;sfreq=sfreq), 
-	   formula=@formula(0~1+(1|subject)+(1|item)),
-	   β=[10],
-	   σs=Dict(:subject=>3,:item=>[1]),contrasts=Dict())
-                   
-   n1 = MixedModelComponent(;basis=n170(;sfreq=sfreq),
-   # note: n170 is already negative, beta doesnt need to be neg
-	   formula=@formula(0~1+condition+ (1+condition|subject)+ (1+condition|item)), 
-	   β=[5,-3],
-	   σs=Dict(:subject=>[σs_n1_intercept,4],:item=>[0.5,0.5]),contrasts=Dict())
-	   
-	p3 = MixedModelComponent(;basis=p300(;sfreq=sfreq),
-		formula=@formula(0~1+continuous+(1+continuous|subject)+(1+continuous|item)),
-		β=[5,1],
-		σs=Dict(:subject=>[4,0],:item=>[0.5,0.5]),contrasts=Dict())
-   end;
-
-# ╔═╡ 55c04898-9783-4e74-82a9-c38f66df106e
-dat,evts = UnfoldSim.simulate(MersenneTwister(1),design,[p1,n1,p3],UniformOnset(1,1),PinkNoise(noiselevel=noiselevel);return_epoched=true);
-
-# ╔═╡ 57d0f9dd-4f52-4933-9386-ab74373b76e8
-md"""
-Some sliders to modify the simulation
-
-|||
-|---|---|
-|Noiselevel | $nl_slider| 
-|N1 intercept random effect σs|$σs_n1_intercept_slider
-
-"""
-
-# ╔═╡ 2bde3123-09a5-4faa-84ba-8ef579179511
-question_box(md"""
-Looking at the single subject ERPs: At what periods & effects do you have high between-subject variability?
-""")
-
-# ╔═╡ 1fb9316e-0943-4ba9-964d-9ac8daf44eba
-md"""
-# Task 3: ROI based LMMs
-"""
-
-# ╔═╡ 8b91f1ba-8667-489f-a396-6da5a238cbe8
-md"""
-For starters we want to fit a single LMM to a Region of Interest (ROI). Given we simulated a single channel right now, we only need to extract the activity in the right time-window.
-"""
-
-# ╔═╡ 30d27b0f-9219-49fb-9da4-48c111f7676e
-md"""
-Calculate ROI-value, baseline, and fit the model
-"""
-
-# ╔═╡ bac2de36-f031-4033-8fe8-87ad66250491
-aside(tip(md"Careful! These p-values can be missleading, they are in most cases too small!"),v_offset=-170)
-
-# ╔═╡ e60e3222-a563-401a-ac71-7cc86a6a5972
-question_box(md"""
-Do we have a "significant" face effect? How large is it compared to what we simulated? Why?
-""")
-
-# ╔═╡ d78b7df1-bd30-4bca-a5c9-40dfad22a2d9
-question_box(md"""
-Some **Bonus** tasks:
-- Add an `item` effect (for technical reasons, the item effect needs to be inserted before the subject effect)
-- Use `roi_bsl` instead of `bsl` - what parameter changes? 
-""")
-
-# ╔═╡ 5e3c5c35-6ce1-4196-bda3-fdf5426650a1
-md"""
-For the roi-baseline task a hint:
-"""
-
-# ╔═╡ 33eb0e21-2cac-481a-bec7-0dec8f4e5fa2
-hint(md"""
-A checkbox might be helpful:
-
-`$(@bind dobaseline PlutoUI.CheckBox()`
-
-And a julia shorthand for if/else: `dobaseline ? data_bsl : data`
-
-""")
-
-# ╔═╡ 668ab2c9-b3bb-4354-841c-4c7116831df1
-md"""
-# Task 4: Mass univariate MixedModels
-"""
-
-# ╔═╡ b6b7e722-33b0-48b7-98e5-85efe4c049f6
-times = range(-0.1,0.5,length=size(dat,1)); # timing vector for plotting
-
-# ╔═╡ 5bff1caf-ac56-4ee7-8164-43b23e523e2e
-begin
-erp2stage = []
+# Calculate a baseline-corrected ERP for each subject
+	
+res = []
 for s = unique(evts.subject)
 	ix = evts.subject .== s # get data of single subjects
-	d = @view dat[:,ix]
+	d = data[:,ix]
 	
-	m = fit(UnfoldModel,@formula(0~1+condition),evts[ix,:],d,times) # fit model
+	d = d .- mean(d[times.<0,:],dims=1) # bsl correction
+	
+	m = fit(UnfoldModel,@formula(0~1),evts[ix,:],d,times) # fit model
 	r = coeftable(m) # extract results
 	r.subject .= s # add subject label
-	append!(erp2stage,[r])
+	append!(res,[r])
 end
-erp2stage = vcat(erp2stage...)
+res = vcat(res...)
+
 end;
 
-# ╔═╡ 89ba4d19-e805-41ae-81ea-81d05a2444a2
-first(erp2stage,5)
+# ╔═╡ b0a86043-1b4a-46ae-91d7-22fecdd4fab0
+first(res,2)
 
-# ╔═╡ 91227813-c5c1-4117-8d56-374e8796c475
-describe(erp2stage)
+# ╔═╡ 1c6b0e39-1edc-46b8-9eae-3d99949943f0
+md"""
+## Visualization
+"""
 
-# ╔═╡ 25f0fdf0-8ca9-4177-a310-8d831288a972
-let
-f = plot_erp(erp2stage;mapping=(;group=:subject))
+# ╔═╡ 1e142b58-9dad-438d-bd15-5fc879c70c5d
+plot_erp(res;mapping=(;color=:subject))
+
+# ╔═╡ ecd2f5ae-cc18-4c78-add8-3d5007672ef1
+begin md"""
+	## **Exercise 2**: Simulate your first multi-subject EEG data!
 	
-# add GrandAverage ERP lines
-GAerp = combine(groupby(erp2stage,[:time,:coefname]),:estimate => mean=>:estimate)
-[lines!(current_axis(),gp.time,gp.estimate,color=:black,linewidth=5) for gp in groupby(GAerp,:coefname)]
+	""" end
 
-f
+# ╔═╡ 8ef586b3-590a-4816-8ed2-93b3fe03b13a
+begin md"""
+# ROI-based LMMs
+- easiest choice (Frömer et al.)
+- nothing particularly different to the "standard" LMM case 
+"""
 end
 
-# ╔═╡ c938df0c-944f-44a2-bff8-aa89ace5c95b
-begin
-bslwindow = times.<0
-roiwindow = times .> 0.15 .&& times .< 0.2
-end
+# ╔═╡ 50542527-17d4-4c25-9116-0b23142825db
+md"""
+## Let's look at the "standard case"
+First - extract ROI values
+""" 
 
-# ╔═╡ f6cdd050-2283-47d9-bd21-f61474c25d8b
+# ╔═╡ e50fab8b-1223-46da-a6e9-42102c24c992
 begin
 evts.roi .= NaN
 evts.bsl .= NaN
-
-winsorizedmean(x) =  mean(winsor(x))
 	
 for s = unique(evts.subject)
 	ix = evts.subject .== s # get data of single subjects
-	d = dat[:,ix] 
+	d = data[:,ix] 
 	
-	evts.bsl[ix] = winsorizedmean(eachrow(d[bslwindow,:])) # bsl correction
+	evts.bsl[ix] = mean(d[times.<0,:],dims=1) # bsl correction
 	
-	evts.roi[ix] = winsorizedmean(eachrow(d[roiwindow,:]))
+	evts.roi[ix] = mean(d[times .> 0.15 .&& times .< 0.2,:],dims=1)
 
 end
-evts.roi_bsl = evts.roi .- evts.bsl # bsl correct ROI
+evts.roi = evts.roi .- evts.bsl # bsl correct ROI
+	
+end
 
-
-# Fit the model!
-m_roi = fit(MixedModel,@formula(roi~1+condition+(1+condition|subject)),evts);
-end;
-
-# ╔═╡ c92fbbeb-b1f9-4b3f-ba40-3d0bc88ba3cd
-DisplayAs.Text(m_roi)
-
-# ╔═╡ 980e21c2-c7c3-46fd-8d61-f6c71e79a3a7
-dat_bsl = dat .- mean(dat[times.<-0.05,:],dims=1); #baseline
-
-# ╔═╡ 06de74ec-c56b-4439-9c0d-5f04823e1a47
+# ╔═╡ 712043b7-1c2c-4fad-a2cf-a50cf65dcdca
 md"""
-Baseline Correct? $(@bind dobaseline PlutoUI.CheckBox())
+Next, run the LMM
 """
 
-# ╔═╡ 8315f08c-3c76-433a-b9ee-4669a1b715d0
+# ╔═╡ 0aa5052a-0e64-479c-bb5d-6f68aa9bcd03
+begin
+m_roi = fit(MixedModel,@formula(roi~1+condition+(1+condition|subject)),evts) 
+	m_roi|>DisplayAs.Text
+end
+
+# ╔═╡ f75beca4-31e9-4787-9734-8acec529a0bf
+shrinkageplot(m_roi,ellipse=true)
+
+# ╔═╡ 93a48714-64d3-4612-b6b2-17e88e96792e
+md"""
+Lot's of shrinkage!
+"""
+
+# ╔═╡ a56051d3-4352-4b24-b368-df005d6c5ebe
+begin md"""
+	## How to get p-values?
+	- Longstanding discussion, no unique solution.
+	- the nasty Degrees of Freedom - a.k.a. how much "independent" information is there?
+	- Many ways to estimate, Kenward-Roger probably the best (but costly). For large N: doesnt matter
+	""" end
+
+# ╔═╡ 335ea3fa-ff11-4ada-85bc-407ba42d0b29
+begin md"""
+## what if model is singular?
+- What is a singular model?
+- How do I detect a singular model?
+- How do I fix it? Do I need fixing?
+""" end
+
+# ╔═╡ bdabdad3-a66c-4723-8fb3-22ec7ccdfb8d
 # ╠═╡ show_logs = false
-uf =fit(UnfoldModel,@formula(0~1+condition+(1|subject)),evts,dobaseline ? dat_bsl : dat,times);
+begin
+	f_full = @formula(roi~1+condition+continuous+(1+condition+continuous|subject)+
+												 (1+condition|item))
+mcc = fit(MixedModel,f_full,evts)
+mcc |>DisplayAs.Text
+end
 
-# ╔═╡ 2806dd13-a328-4d43-957b-51ec11f3d0d8
-plot_erp(coeftable(uf);mapping=(;col=:group),axis=(;limits=(-0.1,0.5,-6,12)))
+# ╔═╡ 93a9c804-d2a8-42ff-bbd7-3631550ec6eb
+shrinkageplot(mcc,:subject;ellipse=true)
 
-# ╔═╡ 1c513c17-99ae-4b0d-8caf-a3c5c4d81cf3
-question_box(
-	md"""
-	Play around with the model:
-	1. Move the sliders from the top and play around with noise / subject-variability
-	1. add a random slope for `condition`
-	1. add an `(1|item)` effect (be sure to put it before the subject effect, else you get an error)
-	"""
-)
 
-# ╔═╡ fc4bc561-ff65-414a-80fb-d2c2e3083656
-TableOfContents()
+# ╔═╡ 3c9b4705-ea7a-4aa9-878a-34779210ac6e
+shrinkageplot(mcc,:item;ellipse=true)
+
+# ╔═╡ 1bd27e82-03ae-4b99-988b-5fdd98ddfc6a
+begin md"""
+## rePCA
+a random-effects PCA can help to identify how bad the situation is. It is a heuristic of how many random effects one truelly needs, to have a non-singular random effects matrix.
+""" end
+
+# ╔═╡ 113a6521-8722-43d6-84d4-ec888fecbfbc
+MixedModels.rePCA(mcc)
+
+# ╔═╡ ae17cefe-15ff-4a5f-99c8-57956d5b1591
+begin md"""
+## Keep it maximal - simplify conservative
+- The general advice is to ["keep it maximal" - Barr](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC3881361/)
+- But this comes at a price of power - model simplifications can be used [Matuschek 2017](https://doi.org/10.1016/j.jml.2017.01.001)
+
+Two tipps:
+
+1. prune correlations first, then random slopes/intercepts
+2. keep the random slopes of the fixed effect you are interested in as long as possible
+""" end
+
+# ╔═╡ 431f14a4-2f8b-47fc-93cf-cb276f2d179d
+md"""
+### 1st. Prune correlations 
+
+| | R | Julia |
+|---|:---:|---|
+|with correlations| `(1+a\|subj)`|`(1+a\|subj)`
+|without correlations|`(1+a\|\|subj)`|`zerocorr(1+a\|subj)`|
+"""
+
+# ╔═╡ bd8016de-5f58-4147-9bde-05fbc1280f18
+begin
+f_med = @formula(roi~1+condition+continuous+zerocorr(1+condition+continuous|subject)
+										   +zerocorr(1+condition|item))
+m_med = fit(MixedModel,f_med,evts) 
+m_med |> MixedModels.rePCA
+end
+	
+
+
+# ╔═╡ a622e4c5-1ee5-4d0a-b14a-4e4cb898a569
+shrinkageplot(m_med,:subject)
+
+# ╔═╡ f8693446-f474-44a2-8a2f-b8fecff6604a
+shrinkageplot(m_med,:item)
+
+# ╔═╡ 6c4241f4-6afd-4ea1-acfd-4b571e19743d
+md"""
+### Next remove random slopes
+"""
+
+# ╔═╡ f3254c3f-c868-4e59-a526-0293c614988a
+
+begin
+m_simp = fit(MixedModel, @formula(roi~1+condition+continuous+zerocorr(1+condition|subject)+zerocorr(1|item)),evts) 
+m_simp |> MixedModels.rePCA
+end
+
+
+# ╔═╡ 6b4e4f80-b8bc-49b0-ac36-b1ad766d72d7
+shrinkageplot(m_simp,:subject)
+
+# ╔═╡ e590053c-6f5d-40f5-a674-7b34a21f2f10
+md"""
+## **Exercise 3**: Try it yourself!
+"""
+
+# ╔═╡ 0822b956-d268-4028-9a41-422947975d78
+begin md"""
+# Mass-univariate LMMs
+Next step: Run a LMM on every timepoint!
+
+---
+""" end
+
+# ╔═╡ 68b4768e-c085-4a0a-8df8-6c4e7639213a
+# ╠═╡ show_logs = false
+begin
+	data_bsl = data .- evts.bsl'
+lmm = fit(UnfoldModel,
+		@formula(0~1+condition+(1|item)+(1+condition+continuous|subject)),
+		evts,data_bsl,times) ;
+end
+
+# ╔═╡ 70cfdb7e-90eb-4917-a0ed-3c19e3bb9ccd
+begin md"""
+
+## Random effects over time
+""" end
+
+# ╔═╡ c8328aa0-b132-476f-a7b9-af2e1e120890
+plot_erp(coeftable(lmm);mapping=(;col = :group))
+
+# ╔═╡ 3f0d7489-e8b1-45cf-8ecd-bdd7a310ef4f
+begin md"""
+## Same model for all timepoints?
+It is reasonable to assume, that the baselineperiod shouldnt show much random effects beyond the intercept.
+
+
+""" end
+
+# ╔═╡ ad97a4f8-92a7-4d17-ada6-c08880296b86
+PlutoTeachingTools.question_box(md"Open question: Should one perform a different model per time-point?")
+
+# ╔═╡ 87486239-2882-4033-bb74-23d0959ef054
+series(rePCA(lmm)[:subject])
+
+# ╔═╡ eb3262b3-df18-45fc-a072-88808c170b8d
+
+
+# ╔═╡ e2de994d-919e-40fd-b3cf-bf5acb6dded8
+a = Base.get_extension(Unfold,:UnfoldMixedModelsExt)
+
+# ╔═╡ 025dd369-49ba-462c-8277-f32f5e895364
+TODO("FIX THIS; new unfold version!")
+
+# ╔═╡ 4caad300-f137-4321-b1ee-0d4d38ec12cf
+begin md"""
+## Outlook: Multiple comparison problem
+The multiple comparison problem can be easily visualized for this EEG data
+
+= > MixedModelsPermutations.jl
+= > ClusterPermutation test
+= > link to other preprint for ""(1|subj)"" - case
+""" 
+end
+
+# ╔═╡ e6e2d6f9-a774-4f8e-a04c-d550366859e4
+TODO("ADD CURRENT RESULTS MixedModelsPermutations.jl")
+
+# ╔═╡ 30d4c647-6537-4418-b679-abaea4135254
+MixedModels.likelihoodratiotest
+
+# ╔═╡ 5bb4e2b2-f82a-42fd-bb1d-cc74dce10201
+begin
+	f0 = @formula(0~1+          (1|item)+(1+condition+continuous|subject))
+	f1 = @formula(0~1+condition+(1|item)+(1+condition+continuous|subject))
+	
+	m0 = fit(UnfoldModel,f0,evts,data_bsl,times) 
+	m1 = fit(UnfoldModel,f1,evts,data_bsl,times) 
+	
+end
+
+# ╔═╡ 399b49c4-ec87-4fae-9608-20d350303d36
+let
+	pval = vcat(pvalues(likelihoodratiotest(m1,m0))...)
+	replace!(pval, NaN=>0.999)
+f,ax,c = scatterlines(pval)
+	ylims!(ax,0.001,1)
+	ax.yscale = Makie.log10
+	ax.yticks = [1,0.05,0.01]
+	ax.ylabel = "LRT p-value"
+hlines!([0.05])
+	f
+end
+
+# ╔═╡ 7313a038-49c2-4aa8-9f1e-de51fbcff774
+TODO("ADD OUTLOOK CLUSTERPERMUTATIONTEST?")
+
+# ╔═╡ ace7c106-010f-469b-9373-825a2a39ab47
+begin md"""
+## How much data?
+
+"""
+end
+
+# ╔═╡ 6a195e7d-8404-40da-84d2-d258d8a1c16d
+PlutoTeachingTools.question_box(md"Open question: What are the typical data-requirements for LMM analyses in EEG?")
+
+# ╔═╡ ffc61e53-954a-401b-b615-0264f7727ddf
+begin md"""
+## Is it even worth it?
+
+""" end
+
+# ╔═╡ 69e7811e-6f9d-4b5e-8530-6ba9f3bc8648
+Kroki.Diagram(:Mermaid,"""
+graph TD
+U --> |No| I  
+T[Too much time?] --> |No| TwoStage
+  I[Item effects ?  ] -->|Yes| LMM
+	U[Unbalanced data?  ] -->|Yes| LMM(Use a LMM!)  
+  T[Too much time?] --> |Yes| No(Think of the trees!)
+  
+  No --> |Ok| TwoStage(Use a 2-Stage model!)
+
+I --> |No| T
+
+
+""")
+
+# ╔═╡ 6eb29bb8-c753-4102-954a-340b8641f99d
+md"""
+## **Exercise 4**: Mass univariate LMMs
+"""
+
+# ╔═╡ d524dde5-3790-4815-bc1d-6a79afcef1ef
+md"""
+You are now ready for the last exercise, your very own mass univariate LMMs!
+"""
 
 # ╔═╡ 00000000-0000-0000-0000-000000000001
 PLUTO_PROJECT_TOML_CONTENTS = """
 [deps]
+AlgebraOfGraphics = "cbdf2221-f076-402e-a563-3d30da359d67"
 CairoMakie = "13f3f980-e62b-5c42-98c6-ff1f3baf88f0"
+Chain = "8be319e6-bccf-4806-a6f7-6fae938471bc"
 DataFrames = "a93c6f00-e57d-5684-b7b6-d8193f3e46c0"
+DataFramesMeta = "1313f7d8-7da2-5740-9ea0-a2ca25f37964"
 DisplayAs = "0b91fe84-8a4c-11e9-3e1d-67c38462b6d6"
-Distributions = "31c24e10-a181-5473-b8eb-7969acd0382f"
-MakieThemes = "e296ed71-da82-5faf-88ab-0034a9761098"
+HypertextLiteral = "ac1192a8-f4b3-4bfe-ba22-af5b92cd3ab2"
+Kroki = "b3565e16-c1f2-4fe9-b4ab-221c88942068"
 MixedModels = "ff71e718-51f3-5ec2-a782-8ffcbfa3c316"
-PlutoTables = "e64c0356-fa58-4209-b01c-f6c8ed5474f5"
+MixedModelsMakie = "b12ae82c-6730-437f-aff9-d2c38332a376"
 PlutoTeachingTools = "661c6b06-c737-4d37-b85c-46df65de6f69"
 PlutoUI = "7f904dfe-b85e-4ff6-b463-dae2292396a8"
 Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
-StableRNGs = "860ef19b-820b-49d6-a774-d7a799459cd3"
-StatsBase = "2913bbd2-ae8a-5f71-8c99-4fb6c76f3a91"
+Statistics = "10745b16-79ce-11e8-11f9-7d13ad32a3b2"
 Unfold = "181c99d8-e21b-4ff3-b70b-c233eddec679"
 UnfoldMakie = "69a5ce3b-64fb-4f22-ae69-36dd4416af2a"
 UnfoldSim = "ed8ae6d2-84d3-44c6-ab46-0baf21700804"
 
 [compat]
-CairoMakie = "~0.10.10"
+AlgebraOfGraphics = "~0.6.16"
+CairoMakie = "~0.10.9"
+Chain = "~0.5.0"
 DataFrames = "~1.6.1"
+DataFramesMeta = "~0.14.0"
 DisplayAs = "~0.1.6"
-Distributions = "~0.25.101"
-MakieThemes = "~0.1.0"
-MixedModels = "~4.22.1"
-PlutoTables = "~0.1.5"
+HypertextLiteral = "~0.9.4"
+Kroki = "~0.2.0"
+MixedModels = "~4.8.2"
+MixedModelsMakie = "~0.3.19"
 PlutoTeachingTools = "~0.2.13"
 PlutoUI = "~0.7.52"
-StableRNGs = "~1.0.0"
-StatsBase = "~0.34.2"
-Unfold = "~0.6.1"
+Unfold = "~0.6.0"
 UnfoldMakie = "~0.3.5"
-UnfoldSim = "~0.1.6"
+UnfoldSim = "~0.1.4"
 """
 
 # ╔═╡ 00000000-0000-0000-0000-000000000002
@@ -408,7 +581,7 @@ PLUTO_MANIFEST_TOML_CONTENTS = """
 
 julia_version = "1.9.2"
 manifest_format = "2.0"
-project_hash = "ca159625a43376b4f35998e9e3fb9f6a40dced29"
+project_hash = "aa47b66f270127cc5f76c2f40b15683e1cf9b448"
 
 [[deps.AbstractFFTs]]
 deps = ["LinearAlgebra"]
@@ -436,48 +609,6 @@ version = "1.2.0"
 git-tree-sha1 = "faa260e4cb5aba097a73fab382dd4b5819d8ec8c"
 uuid = "1520ce14-60c1-5f80-bbc7-55ef81b5835c"
 version = "0.4.4"
-
-[[deps.Accessors]]
-deps = ["CompositionsBase", "ConstructionBase", "Dates", "InverseFunctions", "LinearAlgebra", "MacroTools", "Requires", "Test"]
-git-tree-sha1 = "954634616d5846d8e216df1298be2298d55280b2"
-uuid = "7d9f7c33-5ae7-4f3b-8dc6-eff91059b697"
-version = "0.1.32"
-
-    [deps.Accessors.extensions]
-    AccessorsAxisKeysExt = "AxisKeys"
-    AccessorsIntervalSetsExt = "IntervalSets"
-    AccessorsStaticArraysExt = "StaticArrays"
-    AccessorsStructArraysExt = "StructArrays"
-
-    [deps.Accessors.weakdeps]
-    AxisKeys = "94b1ba4f-4ee9-5380-92f1-94cde586c3c5"
-    IntervalSets = "8197267c-284f-5f27-9208-e0e47529a953"
-    StaticArrays = "90137ffa-7385-5640-81b9-e52037218182"
-    StructArrays = "09ab397b-f2b6-538f-b94a-2f83cf4a842a"
-
-[[deps.AccessorsExtra]]
-deps = ["Accessors", "CompositionsBase", "ConstructionBase", "DataPipes", "InverseFunctions", "LinearAlgebra", "Reexport"]
-git-tree-sha1 = "25fd5261bf6eb01e5f8480f546013d7b90681c3f"
-uuid = "33016aad-b69d-45be-9359-82a41f556fd4"
-version = "0.1.51"
-
-    [deps.AccessorsExtra.extensions]
-    DictionariesExt = "Dictionaries"
-    DistributionsExt = "Distributions"
-    DomainSetsExt = "DomainSets"
-    StaticArraysExt = "StaticArrays"
-    StructArraysExt = "StructArrays"
-    TestExt = "Test"
-    URIsExt = "URIs"
-
-    [deps.AccessorsExtra.weakdeps]
-    Dictionaries = "85a47980-9c8c-11e8-2b9f-f7ca1fa99fb4"
-    Distributions = "31c24e10-a181-5473-b8eb-7969acd0382f"
-    DomainSets = "5b8099bc-c8ec-5219-889f-1d9e522a28bf"
-    StaticArrays = "90137ffa-7385-5640-81b9-e52037218182"
-    StructArrays = "09ab397b-f2b6-538f-b94a-2f83cf4a842a"
-    Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
-    URIs = "5c2747f8-b7ea-4ff2-ba2e-563bfd36b1d4"
 
 [[deps.Adapt]]
 deps = ["LinearAlgebra", "Requires"]
@@ -527,16 +658,6 @@ version = "7.4.11"
     StaticArraysCore = "1e83bf80-4336-4d27-bf5d-d5a4f845583c"
     Tracker = "9f7883ad-71c0-57eb-9f7f-b5c9e6d3789c"
 
-[[deps.ArrayLayouts]]
-deps = ["FillArrays", "LinearAlgebra"]
-git-tree-sha1 = "0d61921af2799487b80453a44abb57db7a0c1381"
-uuid = "4c555306-a7a7-4459-81d9-ec55ddd5c99a"
-version = "1.4.1"
-weakdeps = ["SparseArrays"]
-
-    [deps.ArrayLayouts.extensions]
-    ArrayLayoutsSparseArraysExt = "SparseArrays"
-
 [[deps.Arrow]]
 deps = ["ArrowTypes", "BitIntegers", "CodecLz4", "CodecZstd", "ConcurrentUtilities", "DataAPI", "Dates", "EnumX", "LoggingExtras", "Mmap", "PooledArrays", "SentinelArrays", "Tables", "TimeZones", "TranscodingStreams", "UUIDs"]
 git-tree-sha1 = "954666e252835c4cf8819ce4ffaf31073c1b7233"
@@ -570,24 +691,19 @@ git-tree-sha1 = "16351be62963a67ac4083f748fdb3cca58bfd52f"
 uuid = "39de3d68-74b9-583c-8d2d-e117c070f3a9"
 version = "0.4.7"
 
-[[deps.BSplineKit]]
-deps = ["ArrayLayouts", "BandedMatrices", "FastGaussQuadrature", "LinearAlgebra", "PrecompileTools", "Random", "Reexport", "SparseArrays", "Static", "StaticArrays", "StaticArraysCore"]
-git-tree-sha1 = "b2f80d745b7d52f34dc8f5d3827abfdb273f3fe2"
-uuid = "093aae92-e908-43d7-9660-e50ee39d5a0a"
-version = "0.16.4"
-
-[[deps.BandedMatrices]]
-deps = ["ArrayLayouts", "FillArrays", "LinearAlgebra", "PrecompileTools"]
-git-tree-sha1 = "0b816941273b5b162be122a6c94d706e3b3125ca"
-uuid = "aae01518-5342-5314-be14-df237901396f"
-version = "0.17.38"
-weakdeps = ["SparseArrays"]
-
-    [deps.BandedMatrices.extensions]
-    BandedMatricesSparseArraysExt = "SparseArrays"
-
 [[deps.Base64]]
 uuid = "2a0f44e3-6c83-55bd-87e4-b1978d98bd5f"
+
+[[deps.BenchmarkTools]]
+deps = ["JSON", "Logging", "Printf", "Profile", "Statistics", "UUIDs"]
+git-tree-sha1 = "d9a9701b899b30332bbcb3e1679c41cce81fb0e8"
+uuid = "6e4b80f9-dd63-53aa-95a3-0cdb28fa8baf"
+version = "1.3.2"
+
+[[deps.BitFlags]]
+git-tree-sha1 = "43b1a4a8f797c1cddadf60499a8a077d4af2cd2d"
+uuid = "d1d4a3ce-64b1-5f1a-9ba4-7e7e69966f35"
+version = "0.1.7"
 
 [[deps.BitIntegers]]
 deps = ["Random"]
@@ -629,9 +745,9 @@ version = "1.0.5"
 
 [[deps.CairoMakie]]
 deps = ["Base64", "Cairo", "Colors", "FFTW", "FileIO", "FreeType", "GeometryBasics", "LinearAlgebra", "Makie", "PrecompileTools", "SHA"]
-git-tree-sha1 = "6f2fa27e8609b72e97e36ede7e6aa981d8c7c98d"
+git-tree-sha1 = "696e7931bd6f5c773418452cbe5fd241cb85ac2a"
 uuid = "13f3f980-e62b-5c42-98c6-ff1f3baf88f0"
-version = "0.10.10"
+version = "0.10.9"
 
 [[deps.Cairo_jll]]
 deps = ["Artifacts", "Bzip2_jll", "CompilerSupportLibraries_jll", "Fontconfig_jll", "FreeType2_jll", "Glib_jll", "JLLWrappers", "LZO_jll", "Libdl", "Pixman_jll", "Pkg", "Xorg_libXext_jll", "Xorg_libXrender_jll", "Zlib_jll", "libpng_jll"]
@@ -664,6 +780,11 @@ weakdeps = ["JSON", "RecipesBase", "SentinelArrays", "StructTypes"]
     CategoricalArraysSentinelArraysExt = "SentinelArrays"
     CategoricalArraysStructTypesExt = "StructTypes"
 
+[[deps.Chain]]
+git-tree-sha1 = "8c4920235f6c561e401dfe569beb8b924adad003"
+uuid = "8be319e6-bccf-4806-a6f7-6fae938471bc"
+version = "0.5.0"
+
 [[deps.ChainRulesCore]]
 deps = ["Compat", "LinearAlgebra", "SparseArrays"]
 git-tree-sha1 = "e30f2f4e20f7f186dc36529910beaedc60cfa644"
@@ -682,11 +803,23 @@ git-tree-sha1 = "a1296f0fe01a4c3f9bf0dc2934efbf4416f5db31"
 uuid = "da1fd8a2-8d9e-5ec2-8556-3022fb5608a2"
 version = "1.3.4"
 
+[[deps.CodecBzip2]]
+deps = ["Bzip2_jll", "Libdl", "TranscodingStreams"]
+git-tree-sha1 = "ad41de3795924f7a056243eb3e4161448f0523e6"
+uuid = "523fee87-0ab8-5b00-afb7-3ecf72e48cfd"
+version = "0.8.0"
+
 [[deps.CodecLz4]]
 deps = ["Lz4_jll", "TranscodingStreams"]
 git-tree-sha1 = "59fe0cb37784288d6b9f1baebddbf75457395d40"
 uuid = "5ba52731-8f18-5e0d-9241-30f10d1ec561"
 version = "0.4.0"
+
+[[deps.CodecZlib]]
+deps = ["TranscodingStreams", "Zlib_jll"]
+git-tree-sha1 = "02aa26a4cf76381be7f66e020a3eddeb27b0a092"
+uuid = "944b1d66-785c-5afd-91f1-9de20f533193"
+version = "0.7.2"
 
 [[deps.CodecZstd]]
 deps = ["CEnum", "TranscodingStreams", "Zstd_jll"]
@@ -737,9 +870,9 @@ version = "0.3.0"
 
 [[deps.Compat]]
 deps = ["UUIDs"]
-git-tree-sha1 = "8a62af3e248a8c4bad6b32cbbe663ae02275e32c"
+git-tree-sha1 = "e460f044ca8b99be31d35fe54fc33a5c33dd8ed7"
 uuid = "34da2185-b29b-5c13-b0c7-acf172513d20"
-version = "4.10.0"
+version = "4.9.0"
 weakdeps = ["Dates", "LinearAlgebra"]
 
     [deps.Compat.extensions]
@@ -749,15 +882,6 @@ weakdeps = ["Dates", "LinearAlgebra"]
 deps = ["Artifacts", "Libdl"]
 uuid = "e66e0078-7015-5450-92f7-15fbd957f2ae"
 version = "1.0.5+0"
-
-[[deps.CompositionsBase]]
-git-tree-sha1 = "802bb88cd69dfd1509f6670416bd4434015693ad"
-uuid = "a33af91c-f02d-484b-be07-31d278c5ca2b"
-version = "0.1.2"
-weakdeps = ["InverseFunctions"]
-
-    [deps.CompositionsBase.extensions]
-    CompositionsBaseInverseFunctionsExt = "InverseFunctions"
 
 [[deps.ComputationalResources]]
 git-tree-sha1 = "52cb3ec90e8a8bea0e62e275ba577ad0f74821f7"
@@ -819,10 +943,11 @@ git-tree-sha1 = "04c738083f29f86e62c8afc341f0967d8717bdb8"
 uuid = "a93c6f00-e57d-5684-b7b6-d8193f3e46c0"
 version = "1.6.1"
 
-[[deps.DataPipes]]
-git-tree-sha1 = "4562a7509da49e79360b0ee611e28be092915565"
-uuid = "02685ad9-2d12-40c3-9f73-c6aeda6a7ff5"
-version = "0.3.10"
+[[deps.DataFramesMeta]]
+deps = ["Chain", "DataFrames", "MacroTools", "OrderedCollections", "Reexport"]
+git-tree-sha1 = "7f13b2f9fa5fc843a06596f1cc917ed1a3d6740b"
+uuid = "1313f7d8-7da2-5740-9ea0-a2ca25f37964"
+version = "0.14.0"
 
 [[deps.DataStructures]]
 deps = ["Compat", "InteractiveUtils", "OrderedCollections"]
@@ -901,9 +1026,9 @@ uuid = "8ba89e20-285c-5b6f-9357-94700520ee1b"
 
 [[deps.Distributions]]
 deps = ["FillArrays", "LinearAlgebra", "PDMats", "Printf", "QuadGK", "Random", "SpecialFunctions", "Statistics", "StatsAPI", "StatsBase", "StatsFuns", "Test"]
-git-tree-sha1 = "9e11104e7b41a8a5f04e8694467fc1f94a135bd7"
+git-tree-sha1 = "938fe2981db009f531b6332e31c58e9584a2f9bd"
 uuid = "31c24e10-a181-5473-b8eb-7969acd0382f"
-version = "0.25.101"
+version = "0.25.100"
 
     [deps.Distributions.extensions]
     DistributionsChainRulesCoreExt = "ChainRulesCore"
@@ -937,15 +1062,10 @@ uuid = "5ae413db-bbd1-5e63-b57d-d24a61df00f5"
 version = "2.2.4+0"
 
 [[deps.Effects]]
-deps = ["Combinatorics", "DataFrames", "Distributions", "ForwardDiff", "LinearAlgebra", "Statistics", "StatsAPI", "StatsBase", "StatsModels", "Tables"]
-git-tree-sha1 = "40c47694bc3ff8d8c4cb34d777db2baaa5c872d2"
+deps = ["Combinatorics", "DataFrames", "Distributions", "ForwardDiff", "LinearAlgebra", "Statistics", "StatsBase", "StatsModels", "Tables"]
+git-tree-sha1 = "5dc2e3534cc5b5ce1223d9bc32b89fd26058f147"
 uuid = "8f03c58b-bd97-4933-a826-f71b64d2cca2"
-version = "1.1.0"
-weakdeps = ["GLM", "MixedModels"]
-
-    [deps.Effects.extensions]
-    EffectsGLMExt = "GLM"
-    EffectsMixedModelsExt = ["GLM", "MixedModels"]
+version = "0.1.9"
 
 [[deps.EnumX]]
 git-tree-sha1 = "bdb1942cd4c45e3c678fd11569d5cccd80976237"
@@ -962,6 +1082,12 @@ deps = ["IntervalArithmetic", "Random", "StaticArraysCore", "Test"]
 git-tree-sha1 = "276e83bc8b21589b79303b9985c321024ffdf59c"
 uuid = "429591f6-91af-11e9-00e2-59fbe8cec110"
 version = "2.2.5"
+
+[[deps.ExceptionUnwrapping]]
+deps = ["Test"]
+git-tree-sha1 = "e90caa41f5a86296e014e148ee061bd6c3edec96"
+uuid = "460bff9d-24e4-43bc-9d9f-a8973cb893f4"
+version = "0.1.9"
 
 [[deps.Expat_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl"]
@@ -1002,12 +1128,6 @@ deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
 git-tree-sha1 = "c6033cc3892d0ef5bb9cd29b7f2f0331ea5184ea"
 uuid = "f5851436-0d7a-5f13-b9de-f02708fd171a"
 version = "3.3.10+0"
-
-[[deps.FastGaussQuadrature]]
-deps = ["LinearAlgebra", "SpecialFunctions", "StaticArrays"]
-git-tree-sha1 = "0f478d8bad6f52573fb7658a263af61f3d96e43a"
-uuid = "442a2c76-b920-505d-bb47-c5924d526838"
-version = "0.5.1"
 
 [[deps.FastRounding]]
 deps = ["ErrorfreeArithmetic", "LinearAlgebra"]
@@ -1056,17 +1176,6 @@ deps = ["Statistics"]
 git-tree-sha1 = "335bfdceacc84c5cdf16aadc768aa5ddfc5383cc"
 uuid = "53c48c17-4a7d-5ca2-90c5-79b7896eea93"
 version = "0.8.4"
-
-[[deps.FlexiMaps]]
-deps = ["Accessors", "DataPipes", "InverseFunctions"]
-git-tree-sha1 = "f804b3f96fb71dedb9587f84249f82bb4368b49c"
-uuid = "6394faf6-06db-4fa8-b750-35ccc60383f7"
-version = "0.1.20"
-weakdeps = ["Dictionaries", "StructArrays"]
-
-    [deps.FlexiMaps.extensions]
-    DictionariesExt = "Dictionaries"
-    StructArraysExt = "StructArrays"
 
 [[deps.Fontconfig_jll]]
 deps = ["Artifacts", "Bzip2_jll", "Expat_jll", "FreeType2_jll", "JLLWrappers", "Libdl", "Libuuid_jll", "Pkg", "Zlib_jll"]
@@ -1120,9 +1229,9 @@ uuid = "9fa8497b-333b-5362-9e8d-4d0656e87820"
 
 [[deps.GLM]]
 deps = ["Distributions", "LinearAlgebra", "Printf", "Reexport", "SparseArrays", "SpecialFunctions", "Statistics", "StatsAPI", "StatsBase", "StatsFuns", "StatsModels"]
-git-tree-sha1 = "273bd1cd30768a2fddfa3fd63bbc746ed7249e5f"
+git-tree-sha1 = "97829cfda0df99ddaeaafb5b370d6cab87b7013e"
 uuid = "38e38edf-8417-5370-95a0-9cbb8c7f171a"
-version = "1.9.0"
+version = "1.8.3"
 
 [[deps.GPUArraysCore]]
 deps = ["Adapt"]
@@ -1176,6 +1285,12 @@ version = "0.9.2"
 git-tree-sha1 = "53bb909d1151e57e2484c3d1b53e19552b887fb2"
 uuid = "42e2da0e-8278-4e71-bc24-59509adca0fe"
 version = "1.0.2"
+
+[[deps.HTTP]]
+deps = ["Base64", "CodecZlib", "ConcurrentUtilities", "Dates", "ExceptionUnwrapping", "Logging", "LoggingExtras", "MbedTLS", "NetworkOptions", "OpenSSL", "Random", "SimpleBufferStream", "Sockets", "URIs", "UUIDs"]
+git-tree-sha1 = "5eab648309e2e060198b45820af1a37182de3cce"
+uuid = "cd3eb016-35fb-5094-929b-558a96fad6f3"
+version = "1.10.0"
 
 [[deps.HarfBuzz_jll]]
 deps = ["Artifacts", "Cairo_jll", "Fontconfig_jll", "FreeType2_jll", "Glib_jll", "Graphite2_jll", "JLLWrappers", "Libdl", "Libffi_jll", "Pkg"]
@@ -1312,12 +1427,6 @@ weakdeps = ["Statistics"]
     [deps.IntervalSets.extensions]
     IntervalSetsStatisticsExt = "Statistics"
 
-[[deps.InverseFunctions]]
-deps = ["Test"]
-git-tree-sha1 = "68772f49f54b479fa88ace904f6127f0a3bb2e46"
-uuid = "3587e190-3f89-42d0-90ee-14403ec27112"
-version = "0.1.12"
-
 [[deps.InvertedIndices]]
 git-tree-sha1 = "0dc7b50b8d436461be01300fd8cd45aa0274b038"
 uuid = "41ab1584-1d38-5bbf-9106-f11c6c58b48f"
@@ -1352,9 +1461,9 @@ version = "1.0.0"
 
 [[deps.JLD2]]
 deps = ["FileIO", "MacroTools", "Mmap", "OrderedCollections", "Pkg", "Printf", "Reexport", "Requires", "TranscodingStreams", "UUIDs"]
-git-tree-sha1 = "c11d691a0dc8e90acfa4740d293ade57f68bfdbb"
+git-tree-sha1 = "773125c999b4ebfe31e679593c8af7f43f401f1c"
 uuid = "033835bb-8acc-5ee8-8aae-3f567f8a3819"
-version = "0.4.35"
+version = "0.4.34"
 
 [[deps.JLLWrappers]]
 deps = ["Artifacts", "Preferences"]
@@ -1376,9 +1485,9 @@ version = "1.13.2"
 
 [[deps.JpegTurbo]]
 deps = ["CEnum", "FileIO", "ImageCore", "JpegTurbo_jll", "TOML"]
-git-tree-sha1 = "d65930fa2bc96b07d7691c652d701dcbe7d9cf0b"
+git-tree-sha1 = "327713faef2a3e5c80f96bf38d1fa26f7a6ae29e"
 uuid = "b835a17e-a41a-41e7-81f0-2f016b05efe0"
-version = "0.1.4"
+version = "0.1.3"
 
 [[deps.JpegTurbo_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl"]
@@ -1397,6 +1506,12 @@ deps = ["Distributions", "DocStringExtensions", "FFTW", "Interpolations", "Stats
 git-tree-sha1 = "90442c50e202a5cdf21a7899c66b240fdef14035"
 uuid = "5ab0869b-81aa-558d-bb23-cbf5423bbe9b"
 version = "0.6.7"
+
+[[deps.Kroki]]
+deps = ["Base64", "CodecZlib", "DocStringExtensions", "HTTP", "JSON", "Markdown", "Reexport"]
+git-tree-sha1 = "a3235f9ff60923658084df500cdbc0442ced3274"
+uuid = "b3565e16-c1f2-4fe9-b4ab-221c88942068"
+version = "0.2.0"
 
 [[deps.LAME_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
@@ -1592,21 +1707,15 @@ version = "0.5.11"
 
 [[deps.Makie]]
 deps = ["Animations", "Base64", "CRC32c", "ColorBrewer", "ColorSchemes", "ColorTypes", "Colors", "Contour", "DelaunayTriangulation", "Distributions", "DocStringExtensions", "Downloads", "FFMPEG_jll", "FileIO", "FixedPointNumbers", "Formatting", "FreeType", "FreeTypeAbstraction", "GeometryBasics", "GridLayoutBase", "ImageIO", "InteractiveUtils", "IntervalSets", "Isoband", "KernelDensity", "LaTeXStrings", "LinearAlgebra", "MacroTools", "MakieCore", "Markdown", "Match", "MathTeXEngine", "Observables", "OffsetArrays", "Packing", "PlotUtils", "PolygonOps", "PrecompileTools", "Printf", "REPL", "Random", "RelocatableFolders", "Setfield", "ShaderAbstractions", "Showoff", "SignedDistanceFields", "SparseArrays", "StableHashTraits", "Statistics", "StatsBase", "StatsFuns", "StructArrays", "TriplotBase", "UnicodeFun"]
-git-tree-sha1 = "cf10f4b9d09da50f124ab7bcb530e57f700328f0"
+git-tree-sha1 = "ecc334efc4a8a68800776b0d85ab7bb2fff63f7a"
 uuid = "ee78f7c6-11fb-53f2-987a-cfe4a2b5a57a"
-version = "0.19.10"
+version = "0.19.9"
 
 [[deps.MakieCore]]
 deps = ["Observables"]
-git-tree-sha1 = "17d51182db2667962bc7e1d18b74881d0d0adbe6"
+git-tree-sha1 = "1efb1166dd9398f2ccf6d728f896658c9c84733e"
 uuid = "20f20a25-4f0e-4fdf-b5d1-57303727442b"
-version = "0.6.7"
-
-[[deps.MakieThemes]]
-deps = ["Colors", "Makie", "Random"]
-git-tree-sha1 = "22f0ac33ecb2827e21919c086a74a6a9dc7932a1"
-uuid = "e296ed71-da82-5faf-88ab-0034a9761098"
-version = "0.1.0"
+version = "0.6.6"
 
 [[deps.MappedArrays]]
 git-tree-sha1 = "2dab0221fe2b0f2cb6754eaa743cc266339f527e"
@@ -1622,11 +1731,29 @@ git-tree-sha1 = "1d9bc5c1a6e7ee24effb93f175c9342f9154d97f"
 uuid = "7eb4fadd-790c-5f42-8a69-bfa0b872bfbf"
 version = "1.2.0"
 
+[[deps.MathOptInterface]]
+deps = ["BenchmarkTools", "CodecBzip2", "CodecZlib", "DataStructures", "ForwardDiff", "JSON", "LinearAlgebra", "MutableArithmetics", "NaNMath", "OrderedCollections", "PrecompileTools", "Printf", "SparseArrays", "SpecialFunctions", "Test", "Unicode"]
+git-tree-sha1 = "8bfc1519e9de0564d378b3886b21b9a2f04cbdb5"
+uuid = "b8f27783-ece8-5eb3-8dc8-9495eed66fee"
+version = "1.20.0"
+
+[[deps.MathProgBase]]
+deps = ["LinearAlgebra", "SparseArrays"]
+git-tree-sha1 = "9abbe463a1e9fc507f12a69e7f29346c2cdc472c"
+uuid = "fdba3010-5040-5b88-9595-932c9decdf73"
+version = "0.7.8"
+
 [[deps.MathTeXEngine]]
 deps = ["AbstractTrees", "Automa", "DataStructures", "FreeTypeAbstraction", "GeometryBasics", "LaTeXStrings", "REPL", "RelocatableFolders", "Test", "UnicodeFun"]
 git-tree-sha1 = "8f52dbaa1351ce4cb847d95568cb29e62a307d93"
 uuid = "0a4f8689-d25c-4efe-a92b-7142dfc1aa53"
 version = "0.5.6"
+
+[[deps.MbedTLS]]
+deps = ["Dates", "MbedTLS_jll", "MozillaCACerts_jll", "Random", "Sockets"]
+git-tree-sha1 = "03a9b9718f5682ecb107ac9f7308991db4ce395b"
+uuid = "739be429-bea8-5141-9913-cc70e7f3736d"
+version = "1.1.7"
 
 [[deps.MbedTLS_jll]]
 deps = ["Artifacts", "Libdl"]
@@ -1652,10 +1779,16 @@ uuid = "e1d29d7a-bbdc-5cf2-9ac0-f12de2c33e28"
 version = "1.1.0"
 
 [[deps.MixedModels]]
-deps = ["Arrow", "BSplineKit", "DataAPI", "Distributions", "GLM", "JSON3", "LazyArtifacts", "LinearAlgebra", "Markdown", "NLopt", "PooledArrays", "PrecompileTools", "ProgressMeter", "Random", "SparseArrays", "StaticArrays", "Statistics", "StatsAPI", "StatsBase", "StatsFuns", "StatsModels", "StructTypes", "Tables", "TypedTables"]
-git-tree-sha1 = "2dc021878892ed15b0bcd394d9b158e40c60217f"
+deps = ["Arrow", "DataAPI", "Distributions", "GLM", "JSON3", "LazyArtifacts", "LinearAlgebra", "Markdown", "NLopt", "PooledArrays", "ProgressMeter", "Random", "SnoopPrecompile", "SparseArrays", "StaticArrays", "Statistics", "StatsAPI", "StatsBase", "StatsFuns", "StatsModels", "StructTypes", "Tables"]
+git-tree-sha1 = "fa0816c673c5da589ab8c7bbbd0b0f358ddca53b"
 uuid = "ff71e718-51f3-5ec2-a782-8ffcbfa3c316"
-version = "4.22.1"
+version = "4.8.2"
+
+[[deps.MixedModelsMakie]]
+deps = ["DataFrames", "Distributions", "KernelDensity", "LinearAlgebra", "Makie", "MixedModels", "Printf", "SpecialFunctions", "StatsBase"]
+git-tree-sha1 = "002dd81cf2eba7a8261367d376c2b3968b37dde7"
+uuid = "b12ae82c-6730-437f-aff9-d2c38332a376"
+version = "0.3.19"
 
 [[deps.MixedModelsSim]]
 deps = ["LinearAlgebra", "MixedModels", "PooledArrays", "PrettyTables", "Random", "Statistics", "Tables"]
@@ -1692,6 +1825,12 @@ git-tree-sha1 = "8d852646862c96e226367ad10c8af56099b4047e"
 uuid = "3b2b4ff1-bcff-5658-a3ee-dbcf1ce5ac09"
 version = "0.4.4"
 
+[[deps.MutableArithmetics]]
+deps = ["LinearAlgebra", "SparseArrays", "Test"]
+git-tree-sha1 = "6985021d02ab8c509c841bb8b2becd3145a7b490"
+uuid = "d8a4904e-b15c-11e9-3269-09a3773c0cb0"
+version = "1.3.3"
+
 [[deps.NLSolversBase]]
 deps = ["DiffResults", "Distributed", "FiniteDiff", "ForwardDiff"]
 git-tree-sha1 = "a0b464d183da839699f4c79e7606d9d186ec172c"
@@ -1699,16 +1838,10 @@ uuid = "d41bc354-129a-5804-8e4c-c37616107c6c"
 version = "7.8.3"
 
 [[deps.NLopt]]
-deps = ["NLopt_jll"]
-git-tree-sha1 = "19d2a1c8a3c5b5a459f54a10e54de630c4a05701"
+deps = ["MathOptInterface", "MathProgBase", "NLopt_jll"]
+git-tree-sha1 = "5a7e32c569200a8a03c3d55d286254b0321cd262"
 uuid = "76087f3c-5699-56af-9a33-bf431cd00edd"
-version = "1.0.0"
-
-    [deps.NLopt.extensions]
-    NLoptMathOptInterfaceExt = ["MathOptInterface"]
-
-    [deps.NLopt.weakdeps]
-    MathOptInterface = "b8f27783-ece8-5eb3-8dc8-9495eed66fee"
+version = "0.6.5"
 
 [[deps.NLopt_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
@@ -1777,11 +1910,17 @@ deps = ["Artifacts", "Libdl"]
 uuid = "05823500-19ac-5b8b-9628-191a04bc5112"
 version = "0.8.1+0"
 
+[[deps.OpenSSL]]
+deps = ["BitFlags", "Dates", "MozillaCACerts_jll", "OpenSSL_jll", "Sockets"]
+git-tree-sha1 = "51901a49222b09e3743c65b8847687ae5fc78eb2"
+uuid = "4d8831e6-92b7-49fb-bdf8-b643e874388c"
+version = "1.4.1"
+
 [[deps.OpenSSL_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl"]
-git-tree-sha1 = "ceeda72c9fd6bbebc4f4f598560789145a8b6c4c"
+git-tree-sha1 = "e78db7bd5c26fc5a6911b50a47ee302219157ea8"
 uuid = "458c3c95-2e84-50aa-8efc-19380b2a3a95"
-version = "3.0.11+0"
+version = "3.0.10+0"
 
 [[deps.OpenSpecFun_jll]]
 deps = ["Artifacts", "CompilerSupportLibraries_jll", "JLLWrappers", "Libdl", "Pkg"]
@@ -1813,9 +1952,9 @@ version = "10.42.0+0"
 
 [[deps.PDMats]]
 deps = ["LinearAlgebra", "SparseArrays", "SuiteSparse"]
-git-tree-sha1 = "bf6085e8bd7735e68c210c6e5d81f9a6fe192060"
+git-tree-sha1 = "67eae2738d63117a196f497d7db789821bce61d1"
 uuid = "90014a1f-27ba-587c-ab20-58faa44d9150"
-version = "0.11.19"
+version = "0.11.17"
 
 [[deps.PNGFiles]]
 deps = ["Base64", "CEnum", "ImageCore", "IndirectArrays", "OffsetArrays", "libpng_jll"]
@@ -1852,12 +1991,6 @@ deps = ["Dates", "PrecompileTools", "UUIDs"]
 git-tree-sha1 = "716e24b21538abc91f6205fd1d8363f39b442851"
 uuid = "69de0a69-1ddd-5017-9359-2bf0b02dc9f0"
 version = "2.7.2"
-
-[[deps.Peaks]]
-deps = ["Compat", "RecipesBase"]
-git-tree-sha1 = "1627365757c8b87ad01c2c13e55a5120cbe5b548"
-uuid = "18e31ff7-3703-566c-8e60-38913d67486b"
-version = "0.4.4"
 
 [[deps.Permutations]]
 deps = ["Combinatorics", "LinearAlgebra", "Random"]
@@ -1900,16 +2033,6 @@ git-tree-sha1 = "8f5fa7056e6dcfb23ac5211de38e6c03f6367794"
 uuid = "0ff47ea0-7a50-410d-8455-4348d5de0420"
 version = "0.1.6"
 
-[[deps.PlutoTables]]
-deps = ["AccessorsExtra", "CompositionsBase", "DataPipes", "FlexiMaps", "HypertextLiteral", "PlutoUI"]
-git-tree-sha1 = "a4675f47de5b11529a466322a8020b6679591c9c"
-uuid = "e64c0356-fa58-4209-b01c-f6c8ed5474f5"
-version = "0.1.5"
-weakdeps = ["Unitful"]
-
-    [deps.PlutoTables.extensions]
-    UnitfulExt = "Unitful"
-
 [[deps.PlutoTeachingTools]]
 deps = ["Downloads", "HypertextLiteral", "LaTeXStrings", "Latexify", "Markdown", "PlutoLinks", "PlutoUI", "Random"]
 git-tree-sha1 = "542de5acb35585afcf202a6d3361b430bc1c3fbd"
@@ -1932,18 +2055,13 @@ deps = ["LinearAlgebra", "RecipesBase", "Setfield", "SparseArrays"]
 git-tree-sha1 = "ea78a2764f31715093de7ab495e12c0187f231d1"
 uuid = "f27b6e38-b328-58d1-80ce-0feddd5e7a45"
 version = "4.0.4"
+weakdeps = ["ChainRulesCore", "FFTW", "MakieCore", "MutableArithmetics"]
 
     [deps.Polynomials.extensions]
     PolynomialsChainRulesCoreExt = "ChainRulesCore"
     PolynomialsFFTWExt = "FFTW"
     PolynomialsMakieCoreExt = "MakieCore"
     PolynomialsMutableArithmeticsExt = "MutableArithmetics"
-
-    [deps.Polynomials.weakdeps]
-    ChainRulesCore = "d360d2e6-b24c-11e9-a2a3-2a2ae2dbcce4"
-    FFTW = "7a1cc6ca-52ef-59f5-83cd-3a7055c09341"
-    MakieCore = "20f20a25-4f0e-4fdf-b5d1-57303727442b"
-    MutableArithmetics = "d8a4904e-b15c-11e9-3269-09a3773c0cb0"
 
 [[deps.PooledArrays]]
 deps = ["DataAPI", "Future"]
@@ -1985,6 +2103,10 @@ version = "0.5.4"
 deps = ["Unicode"]
 uuid = "de0858da-6303-5e67-8744-51eddeeeb8d7"
 
+[[deps.Profile]]
+deps = ["Printf"]
+uuid = "9abbd945-dff8-562f-b5e8-e1ebf5ef1b79"
+
 [[deps.ProgressMeter]]
 deps = ["Distributed", "Printf"]
 git-tree-sha1 = "00099623ffee15972c16111bcf84c58a0051257c"
@@ -2011,9 +2133,9 @@ version = "8.0.1003+0"
 
 [[deps.QuadGK]]
 deps = ["DataStructures", "LinearAlgebra"]
-git-tree-sha1 = "9ebcd48c498668c7fa0e97a9cae873fbee7bfee1"
+git-tree-sha1 = "eeab25344bf9901146c0200a7ca64ea479f8bf5c"
 uuid = "1fd47b50-473d-5c70-9696-f719f8f3bcdc"
-version = "2.9.1"
+version = "2.9.0"
 
 [[deps.REPL]]
 deps = ["InteractiveUtils", "Markdown", "Sockets", "Unicode"]
@@ -2128,9 +2250,9 @@ version = "1.1.1"
 
 [[deps.ShaderAbstractions]]
 deps = ["ColorTypes", "FixedPointNumbers", "GeometryBasics", "LinearAlgebra", "Observables", "StaticArrays", "StructArrays", "Tables"]
-git-tree-sha1 = "db0219befe4507878b1a90e07820fed3e62c289d"
+git-tree-sha1 = "0d15c3e7b2003f4451714f08ffec2b77badc2dc4"
 uuid = "65257c39-d410-5151-9873-9b3e5be5013e"
-version = "0.4.0"
+version = "0.3.0"
 
 [[deps.SharedArrays]]
 deps = ["Distributed", "Mmap", "Random", "Serialization"]
@@ -2148,10 +2270,10 @@ uuid = "992d4aef-0814-514b-bc4d-f2e9a6c4116f"
 version = "1.0.3"
 
 [[deps.SignalAnalysis]]
-deps = ["DSP", "Distributions", "DocStringExtensions", "FFTW", "LinearAlgebra", "MetaArrays", "Optim", "PaddedViews", "Peaks", "Random", "Requires", "SignalBase", "Statistics", "WAV"]
-git-tree-sha1 = "d57f40bf531ae2b82549aae0cb20e84331d40333"
+deps = ["DSP", "Distributions", "DocStringExtensions", "FFTW", "LinearAlgebra", "MetaArrays", "PaddedViews", "Random", "Requires", "SignalBase", "Statistics", "WAV"]
+git-tree-sha1 = "04392c481018ff6a213f11b241c29cf482c47acb"
 uuid = "df1fea92-c066-49dd-8b36-eace3378ea47"
-version = "0.6.0"
+version = "0.5.1"
 
 [[deps.SignalBase]]
 deps = ["Unitful"]
@@ -2164,6 +2286,11 @@ deps = ["Random", "Statistics", "Test"]
 git-tree-sha1 = "d263a08ec505853a5ff1c1ebde2070419e3f28e9"
 uuid = "73760f76-fbc4-59ce-8f25-708e95d2df96"
 version = "0.4.0"
+
+[[deps.SimpleBufferStream]]
+git-tree-sha1 = "874e8867b33a00e784c8a7e4b60afe9e037b74e1"
+uuid = "777ac1f9-54b0-4bf8-805c-2214025038e7"
+version = "1.1.0"
 
 [[deps.SimpleGraphs]]
 deps = ["AbstractLattices", "Combinatorics", "DataStructures", "IterTools", "LightXML", "LinearAlgebra", "LinearAlgebraX", "Optim", "Primes", "Random", "RingLists", "SimplePartitions", "SimplePolynomials", "SimpleRandom", "SparseArrays", "Statistics"]
@@ -2201,6 +2328,12 @@ git-tree-sha1 = "2da10356e31327c7096832eb9cd86307a50b1eb6"
 uuid = "45858cf5-a6b0-47a3-bbea-62219f50df47"
 version = "0.1.3"
 
+[[deps.SnoopPrecompile]]
+deps = ["Preferences"]
+git-tree-sha1 = "e760a70afdcd461cf01a575947738d359234665c"
+uuid = "66db9d55-30c0-4569-8b51-7e840670fc0c"
+version = "1.0.3"
+
 [[deps.Sockets]]
 uuid = "6462fe0b-24de-5631-8697-dd941f90decc"
 
@@ -2224,23 +2357,11 @@ weakdeps = ["ChainRulesCore"]
     [deps.SpecialFunctions.extensions]
     SpecialFunctionsChainRulesCoreExt = "ChainRulesCore"
 
-[[deps.SplitApplyCombine]]
-deps = ["Dictionaries", "Indexing"]
-git-tree-sha1 = "48f393b0231516850e39f6c756970e7ca8b77045"
-uuid = "03a91e81-4c3e-53e1-a0a4-9c0c8f19dd66"
-version = "1.2.2"
-
 [[deps.StableHashTraits]]
 deps = ["Compat", "SHA", "Tables", "TupleTools"]
 git-tree-sha1 = "19df33ca14f24a3ad2df9e89124bd5f5cc8467a2"
 uuid = "c5dd0088-6c3f-4803-b00e-f31a60c170fa"
 version = "1.0.1"
-
-[[deps.StableRNGs]]
-deps = ["Random", "Test"]
-git-tree-sha1 = "3be7d49667040add7ee151fefaf1f8c04c8c8276"
-uuid = "860ef19b-820b-49d6-a774-d7a799459cd3"
-version = "1.0.0"
 
 [[deps.StackViews]]
 deps = ["OffsetArrays"]
@@ -2267,9 +2388,9 @@ weakdeps = ["OffsetArrays", "StaticArrays"]
 
 [[deps.StaticArrays]]
 deps = ["LinearAlgebra", "Random", "StaticArraysCore"]
-git-tree-sha1 = "d5fb407ec3179063214bc6277712928ba78459e2"
+git-tree-sha1 = "51621cca8651d9e334a659443a74ce50a3b6dfab"
 uuid = "90137ffa-7385-5640-81b9-e52037218182"
-version = "1.6.4"
+version = "1.6.3"
 weakdeps = ["Statistics"]
 
     [deps.StaticArrays.extensions]
@@ -2293,26 +2414,29 @@ version = "1.7.0"
 
 [[deps.StatsBase]]
 deps = ["DataAPI", "DataStructures", "LinearAlgebra", "LogExpFunctions", "Missings", "Printf", "Random", "SortingAlgorithms", "SparseArrays", "Statistics", "StatsAPI"]
-git-tree-sha1 = "1d77abd07f617c4868c33d4f5b9e1dbb2643c9cf"
+git-tree-sha1 = "d1bf48bfcc554a3761a133fe3a9bb01488e06916"
 uuid = "2913bbd2-ae8a-5f71-8c99-4fb6c76f3a91"
-version = "0.34.2"
+version = "0.33.21"
 
 [[deps.StatsFuns]]
 deps = ["HypergeometricFunctions", "IrrationalConstants", "LogExpFunctions", "Reexport", "Rmath", "SpecialFunctions"]
 git-tree-sha1 = "f625d686d5a88bcd2b15cd81f18f98186fdc0c9a"
 uuid = "4c63d2b9-4356-54db-8cca-17b64c39e42c"
 version = "1.3.0"
-weakdeps = ["ChainRulesCore", "InverseFunctions"]
 
     [deps.StatsFuns.extensions]
     StatsFunsChainRulesCoreExt = "ChainRulesCore"
     StatsFunsInverseFunctionsExt = "InverseFunctions"
 
+    [deps.StatsFuns.weakdeps]
+    ChainRulesCore = "d360d2e6-b24c-11e9-a2a3-2a2ae2dbcce4"
+    InverseFunctions = "3587e190-3f89-42d0-90ee-14403ec27112"
+
 [[deps.StatsModels]]
-deps = ["DataAPI", "DataStructures", "LinearAlgebra", "Printf", "REPL", "ShiftedArrays", "SparseArrays", "StatsAPI", "StatsBase", "StatsFuns", "Tables"]
-git-tree-sha1 = "5cf6c4583533ee38639f73b880f35fc85f2941e0"
+deps = ["DataAPI", "DataStructures", "LinearAlgebra", "Printf", "REPL", "ShiftedArrays", "SparseArrays", "StatsBase", "StatsFuns", "Tables"]
+git-tree-sha1 = "a5e15f27abd2692ccb61a99e0854dfb7d48017db"
 uuid = "3eaba693-59b7-5ba5-a881-562e759f1c8d"
-version = "0.7.3"
+version = "0.6.33"
 
 [[deps.StringManipulation]]
 deps = ["PrecompileTools"]
@@ -2381,9 +2505,9 @@ uuid = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 
 [[deps.TiffImages]]
 deps = ["ColorTypes", "DataStructures", "DocStringExtensions", "FileIO", "FixedPointNumbers", "IndirectArrays", "Inflate", "Mmap", "OffsetArrays", "PkgVersion", "ProgressMeter", "UUIDs"]
-git-tree-sha1 = "b7dc44cb005a7ef743b8fe98970afef003efdce7"
+git-tree-sha1 = "3c4535892eff963d14acee719df445287c2d8f98"
 uuid = "731e570b-9d59-4bfa-96dc-6df516fadf69"
-version = "0.6.6"
+version = "0.6.5"
 
 [[deps.TiledIteration]]
 deps = ["OffsetArrays", "StaticArrayInterface"]
@@ -2444,12 +2568,6 @@ git-tree-sha1 = "155515ed4c4236db30049ac1495e2969cc06be9d"
 uuid = "9d95972d-f1c8-5527-a6e0-b4b365fa01f6"
 version = "1.4.3"
 
-[[deps.TypedTables]]
-deps = ["Adapt", "Dictionaries", "Indexing", "SplitApplyCombine", "Tables", "Unicode"]
-git-tree-sha1 = "d911ae4e642cf7d56b1165d29ef0a96ba3444ca9"
-uuid = "9d95f2ec-7b3d-5a63-8d20-e2491e220bb9"
-version = "1.4.3"
-
 [[deps.URIs]]
 git-tree-sha1 = "b7a5e99f24892b6824a954199a45e9ffcc1c70f0"
 uuid = "5c2747f8-b7ea-4ff2-ba2e-563bfd36b1d4"
@@ -2466,9 +2584,9 @@ version = "1.0.2"
 
 [[deps.Unfold]]
 deps = ["DSP", "DataFrames", "Distributions", "DocStringExtensions", "Effects", "FileIO", "GLM", "IterativeSolvers", "JLD2", "LinearAlgebra", "Logging", "MLBase", "Missings", "ProgressMeter", "Random", "SparseArrays", "StaticArrays", "Statistics", "StatsBase", "StatsFuns", "StatsModels", "Tables", "Test", "TimerOutputs"]
-git-tree-sha1 = "6bfa0f4c80ab237e7a95f0d313656e0c0c21705e"
+git-tree-sha1 = "fa65a62fe2fd6b6b7a051fc867eb43a2795b5583"
 uuid = "181c99d8-e21b-4ff3-b70b-c233eddec679"
-version = "0.6.1"
+version = "0.6.0"
 
     [deps.Unfold.extensions]
     UnfoldBSplineKitExt = "BSplineKit"
@@ -2497,9 +2615,9 @@ version = "0.3.5"
 
 [[deps.UnfoldSim]]
 deps = ["DSP", "DataFrames", "Distributions", "ImageFiltering", "LinearAlgebra", "MixedModels", "MixedModelsSim", "Parameters", "Random", "SignalAnalysis", "StatsModels", "ToeplitzMatrices"]
-git-tree-sha1 = "ce2915381a6f5ff52644b5cb1bdc33f6684feff9"
+git-tree-sha1 = "a4a7effb289223b4ee9edae0d23ee7dddf259653"
 uuid = "ed8ae6d2-84d3-44c6-ab46-0baf21700804"
-version = "0.1.6"
+version = "0.1.4"
 
 [[deps.Unicode]]
 uuid = "4ec0a83e-493e-50e2-b9ac-8f72acf5a8f5"
@@ -2515,11 +2633,14 @@ deps = ["Dates", "LinearAlgebra", "Random"]
 git-tree-sha1 = "a72d22c7e13fe2de562feda8645aa134712a87ee"
 uuid = "1986cc42-f94f-5a68-af5c-568840ba703d"
 version = "1.17.0"
-weakdeps = ["ConstructionBase", "InverseFunctions"]
 
     [deps.Unitful.extensions]
     ConstructionBaseUnitfulExt = "ConstructionBase"
     InverseFunctionsUnitfulExt = "InverseFunctions"
+
+    [deps.Unitful.weakdeps]
+    ConstructionBase = "187b0558-2788-49d3-abe0-74a17ed4e7c9"
+    InverseFunctions = "3587e190-3f89-42d0-90ee-14403ec27112"
 
 [[deps.WAV]]
 deps = ["Base64", "FileIO", "Libdl", "Logging"]
@@ -2675,57 +2796,93 @@ version = "3.5.0+0"
 """
 
 # ╔═╡ Cell order:
-# ╠═d9912a4c-5d3a-11ee-381e-03ad95d59994
-# ╟─f65f535c-e9f3-4972-ad20-42eeaac43427
-# ╟─363cb188-97c7-4ece-b416-08256da0b5f9
-# ╟─47627344-61e0-4992-84a9-612a5e6798f3
-# ╠═4de80b12-59c8-4cee-86d7-d13463fa263a
-# ╟─e4b321f8-e5e4-4459-aa89-9d8d9c640d4d
-# ╟─3cbe1c9d-d3e3-4757-ba8d-2867e37b1dbe
-# ╠═f2ea0255-720b-4689-ac7d-798ef1d0c990
-# ╟─65befddb-2542-473e-8b3b-0b5c5b9fe839
-# ╠═a851ef86-c830-4de3-b485-8997f9e5b81c
-# ╠═ae74ba42-1aaa-4498-84e2-7633c64a3a37
-# ╟─8d0da37e-25bf-42e0-82cc-72cd24a5c82d
-# ╠═c9f67a9a-7862-4f51-93c9-ae644fc836dc
-# ╟─0b009035-d91a-4c46-a762-3ae33e5bae18
-# ╟─bd2bfaab-86f5-4914-8825-87894b6a182f
-# ╟─ea71ee25-35bf-49bb-a869-db2cfe98c6f3
-# ╟─4a23c228-9494-4a59-8c3f-0b4d1621e322
-# ╠═e40bf805-8479-41a6-9083-5d1471a2bc5d
-# ╟─8371a599-2165-477c-ace3-4f3eb77b5004
-# ╠═b3122077-dfae-4117-a90f-1f837a1d1196
-# ╟─56054c8b-02e2-4fb0-a194-fa0c562efa9c
-# ╠═55c04898-9783-4e74-82a9-c38f66df106e
-# ╟─53ad0364-f7ad-4b27-90f8-f4e06bc26c22
-# ╠═5bff1caf-ac56-4ee7-8164-43b23e523e2e
-# ╟─cf5c8e9d-44bd-4701-910e-232972b0195d
-# ╠═89ba4d19-e805-41ae-81ea-81d05a2444a2
-# ╠═91227813-c5c1-4117-8d56-374e8796c475
-# ╟─cdc4b2d3-4d9d-4b56-8153-7175cd86acc4
-# ╠═25f0fdf0-8ca9-4177-a310-8d831288a972
-# ╟─57d0f9dd-4f52-4933-9386-ab74373b76e8
-# ╠═1f9c0f4d-feff-4b92-b5f5-e03b92ff8bba
-# ╠═82ef9822-c2db-4590-8aa2-6d8bb38264a5
-# ╟─2bde3123-09a5-4faa-84ba-8ef579179511
-# ╟─1fb9316e-0943-4ba9-964d-9ac8daf44eba
-# ╟─8b91f1ba-8667-489f-a396-6da5a238cbe8
-# ╠═c938df0c-944f-44a2-bff8-aa89ace5c95b
-# ╟─30d27b0f-9219-49fb-9da4-48c111f7676e
-# ╠═f6cdd050-2283-47d9-bd21-f61474c25d8b
-# ╠═c92fbbeb-b1f9-4b3f-ba40-3d0bc88ba3cd
-# ╟─bac2de36-f031-4033-8fe8-87ad66250491
-# ╟─e60e3222-a563-401a-ac71-7cc86a6a5972
-# ╟─d78b7df1-bd30-4bca-a5c9-40dfad22a2d9
-# ╟─5e3c5c35-6ce1-4196-bda3-fdf5426650a1
-# ╟─33eb0e21-2cac-481a-bec7-0dec8f4e5fa2
-# ╟─668ab2c9-b3bb-4354-841c-4c7116831df1
-# ╠═b6b7e722-33b0-48b7-98e5-85efe4c049f6
-# ╠═980e21c2-c7c3-46fd-8d61-f6c71e79a3a7
-# ╠═8315f08c-3c76-433a-b9ee-4669a1b715d0
-# ╠═2806dd13-a328-4d43-957b-51ec11f3d0d8
-# ╟─06de74ec-c56b-4439-9c0d-5f04823e1a47
-# ╟─1c513c17-99ae-4b0d-8caf-a3c5c4d81cf3
-# ╟─fc4bc561-ff65-414a-80fb-d2c2e3083656
+# ╠═2884d60d-53d2-4bbe-ac46-ace871956876
+# ╠═272fea0a-57f9-11ee-177c-5d1b630c6d3e
+# ╠═801095e7-c7a3-4686-b1da-7d340370512f
+# ╠═207bc1a1-d2f8-43e4-b8b3-22107978ab2f
+# ╠═51c5b832-2754-4eb8-9ca5-f7b0216a30b8
+# ╟─df7ed145-c609-4cd1-98eb-92c1a707ac4a
+# ╠═8d71c769-333f-46af-9690-edc8ad4dc1dd
+# ╟─89d53895-d24d-4b3b-94dd-6657dfd4a1e1
+# ╟─0902eb8a-add8-4397-8c1c-7ebd78f7b704
+# ╟─1c258789-fbb9-49b9-aa4c-7de3dde8f952
+# ╟─5d853d9e-5219-48da-8c09-ca89b5e3516d
+# ╟─789a453f-3a2d-4161-85cd-8724f496a800
+# ╟─5568e23e-720e-4dd6-818f-c91c4ad63153
+# ╟─29d7a01a-1d4d-44ed-8eea-370e26fe2261
+# ╠═1ea7caa3-62d0-4d89-af5d-33b0d55e7cea
+# ╠═3ddff009-ea75-4def-92a3-be2927cf469f
+# ╠═49049fb6-13ad-4cf1-84dd-f3b9e283d9c3
+# ╠═230c76a5-3ff9-487c-b60e-ea9f186bb260
+# ╠═62b05841-8cca-4112-828c-f403bacf88e6
+# ╟─faa80c8f-320c-4cce-b1dc-2d5bb90cb82b
+# ╟─c4e11076-7e62-408c-b7e3-c787b04fb7ab
+# ╟─daed0b75-27e7-4f09-aab4-5b561ff542a6
+# ╟─c3fe1433-805a-4008-972d-757a9c3f4f70
+# ╠═a0faafbb-9b9c-4d46-812b-84d818ae2f50
+# ╠═71bc5650-c7da-4cf3-b7ea-b85445d3515b
+# ╠═ad09c178-e39e-42bd-a142-2a63b6a98445
+# ╟─8b1291a5-6b15-4342-abb3-98e2b866ea7d
+# ╟─aadc8079-46c1-44bf-a96a-bd117c4ec66a
+# ╠═335cfa71-7c95-4798-9872-7e063fbec871
+# ╟─97fa4d4d-428c-4ebc-88f9-33bd4f3ab095
+# ╠═3b8c1122-6308-45da-9c27-524afbbc8818
+# ╟─85613267-c23e-4824-9bd6-37e5e3c128e0
+# ╠═dd1fd9e7-a05f-419c-ab79-2370fc147da0
+# ╟─a571b7a8-9f0c-4ff1-b218-a03e09a3fa67
+# ╟─eaf0e631-b47b-4ef0-bab5-766283671902
+# ╠═0e9e59db-35e1-419a-847a-3833cfed36a7
+# ╠═fed5a298-d1af-4350-9561-5fe4afb3e831
+# ╠═632fb5e5-ea80-4c44-97f0-3c413a4f8635
+# ╠═b0a86043-1b4a-46ae-91d7-22fecdd4fab0
+# ╟─1c6b0e39-1edc-46b8-9eae-3d99949943f0
+# ╠═1e142b58-9dad-438d-bd15-5fc879c70c5d
+# ╟─ecd2f5ae-cc18-4c78-add8-3d5007672ef1
+# ╟─8ef586b3-590a-4816-8ed2-93b3fe03b13a
+# ╟─50542527-17d4-4c25-9116-0b23142825db
+# ╠═e50fab8b-1223-46da-a6e9-42102c24c992
+# ╟─712043b7-1c2c-4fad-a2cf-a50cf65dcdca
+# ╠═0aa5052a-0e64-479c-bb5d-6f68aa9bcd03
+# ╠═f75beca4-31e9-4787-9734-8acec529a0bf
+# ╟─93a48714-64d3-4612-b6b2-17e88e96792e
+# ╟─a56051d3-4352-4b24-b368-df005d6c5ebe
+# ╟─335ea3fa-ff11-4ada-85bc-407ba42d0b29
+# ╠═bdabdad3-a66c-4723-8fb3-22ec7ccdfb8d
+# ╠═93a9c804-d2a8-42ff-bbd7-3631550ec6eb
+# ╠═3c9b4705-ea7a-4aa9-878a-34779210ac6e
+# ╟─1bd27e82-03ae-4b99-988b-5fdd98ddfc6a
+# ╠═113a6521-8722-43d6-84d4-ec888fecbfbc
+# ╟─ae17cefe-15ff-4a5f-99c8-57956d5b1591
+# ╟─431f14a4-2f8b-47fc-93cf-cb276f2d179d
+# ╠═bd8016de-5f58-4147-9bde-05fbc1280f18
+# ╠═a622e4c5-1ee5-4d0a-b14a-4e4cb898a569
+# ╠═f8693446-f474-44a2-8a2f-b8fecff6604a
+# ╟─6c4241f4-6afd-4ea1-acfd-4b571e19743d
+# ╠═f3254c3f-c868-4e59-a526-0293c614988a
+# ╠═6b4e4f80-b8bc-49b0-ac36-b1ad766d72d7
+# ╠═e590053c-6f5d-40f5-a674-7b34a21f2f10
+# ╟─0822b956-d268-4028-9a41-422947975d78
+# ╠═68b4768e-c085-4a0a-8df8-6c4e7639213a
+# ╟─70cfdb7e-90eb-4917-a0ed-3c19e3bb9ccd
+# ╠═c8328aa0-b132-476f-a7b9-af2e1e120890
+# ╟─3f0d7489-e8b1-45cf-8ecd-bdd7a310ef4f
+# ╟─ad97a4f8-92a7-4d17-ada6-c08880296b86
+# ╠═87486239-2882-4033-bb74-23d0959ef054
+# ╠═eb3262b3-df18-45fc-a072-88808c170b8d
+# ╠═e2de994d-919e-40fd-b3cf-bf5acb6dded8
+# ╟─025dd369-49ba-462c-8277-f32f5e895364
+# ╠═4caad300-f137-4321-b1ee-0d4d38ec12cf
+# ╠═e6e2d6f9-a774-4f8e-a04c-d550366859e4
+# ╠═30d4c647-6537-4418-b679-abaea4135254
+# ╠═5bb4e2b2-f82a-42fd-bb1d-cc74dce10201
+# ╟─399b49c4-ec87-4fae-9608-20d350303d36
+# ╠═7313a038-49c2-4aa8-9f1e-de51fbcff774
+# ╠═ace7c106-010f-469b-9373-825a2a39ab47
+# ╟─6a195e7d-8404-40da-84d2-d258d8a1c16d
+# ╠═4d7ee298-b43c-40ef-86e6-f5fe22d22d93
+# ╟─ffc61e53-954a-401b-b615-0264f7727ddf
+# ╟─69e7811e-6f9d-4b5e-8530-6ba9f3bc8648
+# ╟─6eb29bb8-c753-4102-954a-340b8641f99d
+# ╟─d524dde5-3790-4815-bc1d-6a79afcef1ef
 # ╟─00000000-0000-0000-0000-000000000001
 # ╟─00000000-0000-0000-0000-000000000002

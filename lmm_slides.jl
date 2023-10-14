@@ -484,7 +484,7 @@ end;
 question_box(md"""
 **Open Question:** What is the "correct" method we should use for EEG-LMMs? 
 
-**Open Question:** Should we combine them with Cluster-Permutation tests somehow?
+**Open Question:** Should we combine them with Cluster-Permutation tests somehow (see below)?
 """)
 
 # ╔═╡ ace7c106-010f-469b-9373-825a2a39ab47
@@ -2992,7 +2992,7 @@ version = "3.5.0+0"
 # ╟─0842e6f0-1311-497a-bda1-80aecc03a7b7
 # ╟─49a2d80a-d957-4390-a6d0-372f5c161148
 # ╠═5bb4e2b2-f82a-42fd-bb1d-cc74dce10201
-# ╟─399b49c4-ec87-4fae-9608-20d350303d36
+# ╠═399b49c4-ec87-4fae-9608-20d350303d36
 # ╟─bcc12956-d719-4516-b629-4998368e125d
 # ╟─ace7c106-010f-469b-9373-825a2a39ab47
 # ╟─6a195e7d-8404-40da-84d2-d258d8a1c16d

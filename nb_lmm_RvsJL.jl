@@ -11,12 +11,9 @@ begin
 	using RCall
 end
 
-# ╔═╡ e55b1f79-8597-4dc6-b986-642b237136c5
-
-
 # ╔═╡ 98f151e2-429e-48c6-9a7e-81f43a3e7d92
 begin
-sleepstudy = DataFrame(MixedModels.dataset(:sleepstudy))
+	sleepstudy = DataFrame(MixedModels.dataset(:sleepstudy))
 	sleepstudy = vcat(repeat([sleepstudy],500)...)
 end
 
@@ -25,6 +22,9 @@ end
 
 # ╔═╡ f792d7de-8ea8-40ee-a127-668fcf022429
 R"library(lme4)";
+
+# ╔═╡ e6126045-df67-4917-b633-147fe6a8bf33
+@rlibrary base
 
 # ╔═╡ 7df9314b-24f6-4be2-812f-234bb705760c
 @time R"""
@@ -838,10 +838,10 @@ version = "17.4.0+0"
 
 # ╔═╡ Cell order:
 # ╠═ee2e4b7e-4049-4823-bf67-062ab89a12df
-# ╠═e55b1f79-8597-4dc6-b986-642b237136c5
 # ╠═98f151e2-429e-48c6-9a7e-81f43a3e7d92
 # ╠═784213b3-85c6-418f-8286-77e8faddc7b7
 # ╠═f792d7de-8ea8-40ee-a127-668fcf022429
+# ╠═e6126045-df67-4917-b633-147fe6a8bf33
 # ╠═7df9314b-24f6-4be2-812f-234bb705760c
 # ╠═fcb449c2-57bf-4745-abf6-8aaafa16b828
 # ╟─00000000-0000-0000-0000-000000000001
