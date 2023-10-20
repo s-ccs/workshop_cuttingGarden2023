@@ -1,6 +1,13 @@
 # LMM+EEG Workshop @ CuttingGardens2023
 
-For a non-interactive, rendered view, [follow this link](lmm_slides.html)
+## Exercise
+[Link to exercise .jl](lmm_exercise.jl)
+
+## LME4 vs. MixedModels.jl speed demo
+[MixedModels.jl is 100x faster](nb_lmm_RvsJL.jl)
+
+## Slides
+For a non-interactive, rendered html view, [follow this link](lmm_slides.html)
 
 The main workshop content are Pluto.jl notebook files. To start them 
 
