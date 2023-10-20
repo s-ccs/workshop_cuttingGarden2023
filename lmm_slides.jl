@@ -1,5 +1,5 @@
 ### A Pluto.jl notebook ###
-# v0.19.27
+# v0.19.29
 
 using Markdown
 using InteractiveUtils
@@ -36,8 +36,8 @@ end
 # ╠═╡ show_logs = false
 begin
 using AlgebraOfGraphics
-const AoG = AlgebraOfGraphics
-end
+const AoG = AlgebraOfGraphics;
+end;
 
 # ╔═╡ 335cfa71-7c95-4798-9872-7e063fbec871
 using MixedModelsMakie
@@ -50,6 +50,15 @@ using Distributions
 
 # ╔═╡ 4d7ee298-b43c-40ef-86e6-f5fe22d22d93
 using Kroki
+
+# ╔═╡ 5d96e932-610b-445d-ba97-8e4cbfa68a15
+md"""
+# Linear Mixed Models + EEG
+Cutting Garden 2023 - Benedikt Ehinger
+
+Visit [www.s-ccs.de](www.s-ccs.de) for cool vision demos, teaching materials and more!
+"""
+
 
 # ╔═╡ 2884d60d-53d2-4bbe-ac46-ace871956876
 ChooseDisplayMode()
@@ -77,12 +86,13 @@ An example where datapoints do not have dependencies:
 # ╔═╡ 8d71c769-333f-46af-9690-edc8ad4dc1dd
 let
 	
-k = []
+🪙  = []
 for subj = 1:10
-	append!(k,rand(["head","tail"],20))
+	append!(🪙,rand(["😀","🦕"],20))
 end
-sum(k.=="head") / 10*10
-
+s = sum(🪙.=="😀") / (10*20)   
+	
+md"proportion of **head** results: $s"
 end
 
 # ╔═╡ 89d53895-d24d-4b3b-94dd-6657dfd4a1e1
@@ -125,20 +135,20 @@ md"""
 """
 
 # ╔═╡ 1ea7caa3-62d0-4d89-af5d-33b0d55e7cea
-# moonphases = collect('🌑':'🌘')
+moonphases = collect('🌑':'🌘')
 
 # ╔═╡ 3ddff009-ea75-4def-92a3-be2927cf469f
 #@bind clock PlutoUI.Slider(1:length(moonphases),show_value=true)
-#@bind clock PlutoUI.Clock(;start_running=false,interval=0.5)
+@bind clock PlutoUI.Clock(;start_running=false,interval=0.5)
 
-# ╔═╡ 49049fb6-13ad-4cf1-84dd-f3b9e283d9c3
-#moonindex = clock
+# ╔═╡ e370f450-f789-47eb-85d6-75bc21e7a331
+clock
 
 # ╔═╡ 230c76a5-3ff9-487c-b60e-ea9f186bb260
-#moonindex = Int(mod(clock-1,length(moonphases))+1)
+moonindex = Int(mod(clock-1,length(moonphases))+1)
 
 # ╔═╡ 62b05841-8cca-4112-828c-f403bacf88e6
-#@htl """<span style="font-size: 10rem;">$(moonphases[moonindex])</span>"""
+@htl """<span style="font-size: 10rem;">$(moonphases[moonindex])</span>"""
 
 # ╔═╡ faa80c8f-320c-4cce-b1dc-2d5bb90cb82b
 md"""
@@ -200,6 +210,24 @@ We can also look at the shrinkage plot. The **red** dots are the estimates "with
 # ╔═╡ dd1fd9e7-a05f-419c-ab79-2370fc147da0
 shrinkageplot(fit2(),ellipse=true)
 
+# ╔═╡ e28d2fc9-4bc3-4f1a-9ead-3cd04566a394
+md"""
+## A common mistake
+
+
+"""
+
+# ╔═╡ 09a0c12b-bb47-41a9-825c-29a9aedd562d
+danger(md"""
+There is a common mistake I see with LMM data. Fitting a model of:
+
+`y ~ 1 + within_condition + (1|subject)`
+
+Does **not** correct for within-subject correlations in condition
+
+*One exception: if prior to the LMM, you agreggated the data to each condition-cell*
+""")
+
 # ╔═╡ a571b7a8-9f0c-4ff1-b218-a03e09a3fa67
 begin md"""
 # LMMs + EEG
@@ -223,6 +251,9 @@ data,evts = UnfoldSim.predef_eeg(
 times = range(-0.1,stop=0.6,length=45); # some fake time data
 end;
 
+# ╔═╡ 6d718e56-0c88-4e3b-99f9-e8e9d08f2ae2
+heatmap(data)
+
 # ╔═╡ 632fb5e5-ea80-4c44-97f0-3c413a4f8635
 begin
 # Calculate a baseline-corrected ERP for each subject
@@ -235,6 +266,7 @@ for s = unique(evts.subject)
 	d = d .- mean(d[times.<0,:],dims=1) # bsl correction
 	
 	m = fit(UnfoldModel,@formula(0~1),evts[ix,:],d,times) # fit model
+	
 	r = coeftable(m) # extract results
 	r.subject .= s # add subject label
 	append!(res,[r])
@@ -244,7 +276,10 @@ res = vcat(res...)
 end;
 
 # ╔═╡ b0a86043-1b4a-46ae-91d7-22fecdd4fab0
-first(res,2)
+first(res,5)
+
+# ╔═╡ 3695eb25-86ef-41fd-8855-600555d1fd25
+unique(res.subject)
 
 # ╔═╡ 1c6b0e39-1edc-46b8-9eae-3d99949943f0
 md"""
@@ -291,6 +326,9 @@ end
 evts.roi = evts.roi .- evts.bsl # bsl correct ROI
 	
 end
+
+# ╔═╡ 562aeadc-a298-4b4e-87a0-968e0e089e88
+first(evts,5)
 
 # ╔═╡ 712043b7-1c2c-4fad-a2cf-a50cf65dcdca
 md"""
@@ -373,8 +411,7 @@ md"""
 
 # ╔═╡ bd8016de-5f58-4147-9bde-05fbc1280f18
 begin
-f_med = @formula(roi~1+condition+continuous+zerocorr(1+condition+continuous|subject)
-										   +zerocorr(1+condition|item))
+f_med = @formula(roi~1+condition+continuous+(1+condition|subject))
 m_med = fit(MixedModel,f_med,evts) 
 m_med |> MixedModels.rePCA
 end
@@ -382,7 +419,7 @@ end
 
 
 # ╔═╡ a622e4c5-1ee5-4d0a-b14a-4e4cb898a569
-shrinkageplot(m_med,:subject)
+shrinkageplot(m_med,:subject,ellipse=true)
 
 # ╔═╡ f8693446-f474-44a2-8a2f-b8fecff6604a
 shrinkageplot(m_med,:item)
@@ -434,7 +471,7 @@ begin md"""
 # ╔═╡ c8328aa0-b132-476f-a7b9-af2e1e120890
 begin
 	with_theme(fontsize=20) do
-plot_erp(coeftable(lmm);mapping=(;col = :group),axis=(;ylabel=""))
+		plot_erp(coeftable(lmm);mapping=(;col = :group),axis=(;ylabel=""))
 	end
 end
 
@@ -2915,11 +2952,12 @@ version = "3.5.0+0"
 """
 
 # ╔═╡ Cell order:
-# ╠═2884d60d-53d2-4bbe-ac46-ace871956876
-# ╠═272fea0a-57f9-11ee-177c-5d1b630c6d3e
-# ╠═207bc1a1-d2f8-43e4-b8b3-22107978ab2f
-# ╠═b8a96b87-7842-4541-a302-b77167775f3c
-# ╠═51c5b832-2754-4eb8-9ca5-f7b0216a30b8
+# ╟─5d96e932-610b-445d-ba97-8e4cbfa68a15
+# ╟─272fea0a-57f9-11ee-177c-5d1b630c6d3e
+# ╟─207bc1a1-d2f8-43e4-b8b3-22107978ab2f
+# ╟─2884d60d-53d2-4bbe-ac46-ace871956876
+# ╟─b8a96b87-7842-4541-a302-b77167775f3c
+# ╟─51c5b832-2754-4eb8-9ca5-f7b0216a30b8
 # ╟─df7ed145-c609-4cd1-98eb-92c1a707ac4a
 # ╠═8d71c769-333f-46af-9690-edc8ad4dc1dd
 # ╟─89d53895-d24d-4b3b-94dd-6657dfd4a1e1
@@ -2931,6 +2969,7 @@ version = "3.5.0+0"
 # ╟─29d7a01a-1d4d-44ed-8eea-370e26fe2261
 # ╠═1ea7caa3-62d0-4d89-af5d-33b0d55e7cea
 # ╠═3ddff009-ea75-4def-92a3-be2927cf469f
+# ╠═e370f450-f789-47eb-85d6-75bc21e7a331
 # ╠═49049fb6-13ad-4cf1-84dd-f3b9e283d9c3
 # ╠═230c76a5-3ff9-487c-b60e-ea9f186bb260
 # ╠═62b05841-8cca-4112-828c-f403bacf88e6
@@ -2948,18 +2987,23 @@ version = "3.5.0+0"
 # ╠═3b8c1122-6308-45da-9c27-524afbbc8818
 # ╟─85613267-c23e-4824-9bd6-37e5e3c128e0
 # ╠═dd1fd9e7-a05f-419c-ab79-2370fc147da0
+# ╟─e28d2fc9-4bc3-4f1a-9ead-3cd04566a394
+# ╠═09a0c12b-bb47-41a9-825c-29a9aedd562d
 # ╟─a571b7a8-9f0c-4ff1-b218-a03e09a3fa67
 # ╟─eaf0e631-b47b-4ef0-bab5-766283671902
 # ╠═0e9e59db-35e1-419a-847a-3833cfed36a7
 # ╠═fed5a298-d1af-4350-9561-5fe4afb3e831
+# ╠═6d718e56-0c88-4e3b-99f9-e8e9d08f2ae2
 # ╠═632fb5e5-ea80-4c44-97f0-3c413a4f8635
 # ╠═b0a86043-1b4a-46ae-91d7-22fecdd4fab0
+# ╠═3695eb25-86ef-41fd-8855-600555d1fd25
 # ╟─1c6b0e39-1edc-46b8-9eae-3d99949943f0
 # ╠═1e142b58-9dad-438d-bd15-5fc879c70c5d
 # ╟─ecd2f5ae-cc18-4c78-add8-3d5007672ef1
 # ╟─8ef586b3-590a-4816-8ed2-93b3fe03b13a
 # ╟─50542527-17d4-4c25-9116-0b23142825db
 # ╠═e50fab8b-1223-46da-a6e9-42102c24c992
+# ╠═562aeadc-a298-4b4e-87a0-968e0e089e88
 # ╟─712043b7-1c2c-4fad-a2cf-a50cf65dcdca
 # ╠═0aa5052a-0e64-479c-bb5d-6f68aa9bcd03
 # ╠═f75beca4-31e9-4787-9734-8acec529a0bf

@@ -1,5 +1,5 @@
 ### A Pluto.jl notebook ###
-# v0.19.27
+# v0.19.29
 
 using Markdown
 using InteractiveUtils
@@ -15,6 +15,7 @@ end
 begin
 	sleepstudy = DataFrame(MixedModels.dataset(:sleepstudy))
 	sleepstudy = vcat(repeat([sleepstudy],500)...)
+	#sleepstudy.reaction = sleepstudy.reaction .+ rand(size(sleepstudy.reaction))
 end
 
 # ╔═╡ 784213b3-85c6-418f-8286-77e8faddc7b7
@@ -23,16 +24,13 @@ end
 # ╔═╡ f792d7de-8ea8-40ee-a127-668fcf022429
 R"library(lme4)";
 
-# ╔═╡ e6126045-df67-4917-b633-147fe6a8bf33
-@rlibrary base
-
 # ╔═╡ 7df9314b-24f6-4be2-812f-234bb705760c
 @time R"""
-fm3 = lmer(reaction ~ 1 + days + (1+days|subj),sleepstudy)
+fm3 = lmer(reaction ~ 1 + days + (1+days||subj),sleepstudy)
 """;
 
 # ╔═╡ fcb449c2-57bf-4745-abf6-8aaafa16b828
-@time fm2 = fit(MixedModel, @formula(reaction ~ 1 + days + (1 + days|subj)), sleepstudy);
+@time fm2 = fit(MixedModel, @formula(reaction ~ 1 + days + zerocorr(1 + days|subj)), sleepstudy);
 
 
 # ╔═╡ 00000000-0000-0000-0000-000000000001
@@ -841,7 +839,6 @@ version = "17.4.0+0"
 # ╠═98f151e2-429e-48c6-9a7e-81f43a3e7d92
 # ╠═784213b3-85c6-418f-8286-77e8faddc7b7
 # ╠═f792d7de-8ea8-40ee-a127-668fcf022429
-# ╠═e6126045-df67-4917-b633-147fe6a8bf33
 # ╠═7df9314b-24f6-4be2-812f-234bb705760c
 # ╠═fcb449c2-57bf-4745-abf6-8aaafa16b828
 # ╟─00000000-0000-0000-0000-000000000001
